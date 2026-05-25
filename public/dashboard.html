@@ -1147,6 +1147,7 @@ function selectUser(deviceId) {
     vid.play().catch(e => {
       console.warn("Autoplay blocked, trying muted:", e);
       vid.muted = true;
+      document.getElementById("video-label").innerHTML += ' <span style="background:var(--amber);color:#000;padding:2px 4px;border-radius:2px;cursor:pointer;" onclick="document.getElementById(\\\'remote-video\\\').muted=false; this.style.display=\\\'none\\\';">🔇 Click to Unmute</span>';
       vid.play().catch(e2 => console.warn("Still blocked:", e2));
     });
   } else {
@@ -1155,10 +1156,16 @@ function selectUser(deviceId) {
     document.getElementById("video-label").textContent = "NO FEED";
   }
 
-  // Hide all canvas feeds, show active one
+  // Hide all canvas feeds, show active one if WebRTC stream is NOT active
   document.querySelectorAll('.canvas-feed-img').forEach(img => img.style.display = 'none');
   const activeCanvas = document.getElementById('canvas-feed-' + deviceId);
-  if (activeCanvas && !user.stream) activeCanvas.style.display = 'block';
+  
+  if (!user.stream || (user.pc && (user.pc.iceConnectionState === "failed" || user.pc.iceConnectionState === "disconnected"))) {
+    if (activeCanvas) activeCanvas.style.display = 'block';
+    document.getElementById("remote-video").style.display = "none";
+    document.getElementById("no-feed").style.display = "none";
+    document.getElementById("video-label").textContent = "🔴 " + user.name + " (Canvas)";
+  }
 
   // Update Map
   if (user.gps) map.panTo([user.gps.lat, user.gps.lng]);
@@ -1194,6 +1201,14 @@ socket.on("offer", async (data) => {
     user.pc.ontrack = (e) => {
       user.stream = e.streams[0];
       if (activeUserId === deviceId) selectUser(deviceId);
+    };
+
+    user.pc.oniceconnectionstatechange = () => {
+      console.log("Dashboard ICE state:", user.pc.iceConnectionState);
+      if (user.pc.iceConnectionState === "failed" || user.pc.iceConnectionState === "disconnected") {
+        user.stream = null;
+        if (activeUserId === deviceId) selectUser(deviceId);
+      }
     };
 
     user.pc.onicecandidate = (e) => {
