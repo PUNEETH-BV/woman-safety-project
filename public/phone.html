@@ -323,6 +323,7 @@
     const SERVER = window.location.origin;
     let socket, stream, audioCtx, analyser, sensorInterval, gpsWatch;
     let peerConnection = null;
+    let iceCandidateQueue = [];
     let canvasInterval = null;
     let isStreaming = false;
     let rawAudioLevel = 0;
@@ -466,12 +467,15 @@
         }
       });
 
-      // ─── WebRTC Signaling Handlers ──────────────────────────
       socket.on('answer', async (answer) => {
         if (!peerConnection) return;
         try {
           await peerConnection.setRemoteDescription(new RTCSessionDescription(answer));
           log('WebRTC answer received — stream should start', 'ok');
+          while(iceCandidateQueue.length > 0) {
+            let c = iceCandidateQueue.shift();
+            peerConnection.addIceCandidate(c).catch(e => log('Queued candidate error: ' + e.message, 'err'));
+          }
         } catch (e) {
           log('Error setting answer: ' + e.message, 'err');
         }
@@ -479,10 +483,15 @@
 
       socket.on('ice-candidate', async (candidate) => {
         if (!peerConnection) return;
-        try {
-          await peerConnection.addIceCandidate(new RTCIceCandidate(candidate));
-        } catch (e) {
-          // ICE candidate errors are often harmless
+        const rtcCandidate = new RTCIceCandidate(candidate);
+        if (!peerConnection.remoteDescription) {
+          iceCandidateQueue.push(rtcCandidate);
+        } else {
+          try {
+            await peerConnection.addIceCandidate(rtcCandidate);
+          } catch (e) {
+            // ICE candidate errors are often harmless
+          }
         }
       });
 
@@ -629,11 +638,15 @@
     // ─── WebRTC Setup (Phone creates offer) ───────────────────
     async function setupWebRTC(mediaStream) {
       try {
+        iceCandidateQueue = [];
         peerConnection = new RTCPeerConnection({
           iceServers: [
             { urls: 'stun:stun.l.google.com:19302' },
             { urls: 'stun:stun1.l.google.com:19302' },
             { urls: 'stun:stun2.l.google.com:19302' },
+            { urls: 'stun:stun3.l.google.com:19302' },
+            { urls: 'stun:stun4.l.google.com:19302' },
+            { urls: 'stun:stun.services.mozilla.com' },
             { urls: 'turn:openrelay.metered.ca:80', username: 'openrelayproject', credential: 'openrelayproject' },
             { urls: 'turn:openrelay.metered.ca:443', username: 'openrelayproject', credential: 'openrelayproject' },
             { urls: 'turn:openrelay.metered.ca:443?transport=tcp', username: 'openrelayproject', credential: 'openrelayproject' }

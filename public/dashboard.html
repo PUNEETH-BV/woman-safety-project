@@ -1076,6 +1076,7 @@ socket.on("room-users", (roomUsers) => {
         audioLevel: 0,
         sensorData: null,
         stream: null,
+        iceCandidateQueue: [],
         canvasFrames: null,
         marker: null,
         trailCoords: [],
@@ -1181,8 +1182,12 @@ socket.on("offer", async (data) => {
     user.pc = new RTCPeerConnection({
       iceServers: [
         { urls: 'stun:stun.l.google.com:19302' },
+        { urls: 'stun:stun1.l.google.com:19302' },
+        { urls: 'stun:stun2.l.google.com:19302' },
+        { urls: 'stun:stun.services.mozilla.com' },
         { urls: 'turn:openrelay.metered.ca:80', username: 'openrelayproject', credential: 'openrelayproject' },
-        { urls: 'turn:openrelay.metered.ca:443', username: 'openrelayproject', credential: 'openrelayproject' }
+        { urls: 'turn:openrelay.metered.ca:443', username: 'openrelayproject', credential: 'openrelayproject' },
+        { urls: 'turn:openrelay.metered.ca:443?transport=tcp', username: 'openrelayproject', credential: 'openrelayproject' }
       ]
     });
 
@@ -1204,6 +1209,14 @@ socket.on("offer", async (data) => {
     };
 
     await user.pc.setRemoteDescription(new RTCSessionDescription(data));
+    
+    if (user.iceCandidateQueue) {
+      while(user.iceCandidateQueue.length > 0) {
+        let c = user.iceCandidateQueue.shift();
+        user.pc.addIceCandidate(c).catch(e => console.error("Queued candidate error:", e));
+      }
+    }
+
     const answer = await user.pc.createAnswer();
     await user.pc.setLocalDescription(answer);
     socket.emit("answer", { type: answer.type, sdp: answer.sdp, targetDeviceId: deviceId });
@@ -1214,8 +1227,14 @@ socket.on("offer", async (data) => {
 
 socket.on("ice-candidate", async (data) => {
   const user = users.get(data.deviceId);
-  if (user && user.pc) {
-    try { await user.pc.addIceCandidate(new RTCIceCandidate(data)); } catch (e) { }
+  if (user) {
+    if (!user.iceCandidateQueue) user.iceCandidateQueue = [];
+    const candidate = new RTCIceCandidate(data);
+    if (user.pc && user.pc.remoteDescription) {
+      try { await user.pc.addIceCandidate(candidate); } catch (e) { }
+    } else {
+      user.iceCandidateQueue.push(candidate);
+    }
   }
 });
 
