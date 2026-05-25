@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <title>SafeGuard — Evidence Locker</title>
+  <meta name="description" content="SafeGuard Evidence Locker - secure audio and video recording with GPS tagging and cloud sync">
+  <link rel="stylesheet" href="../shared/design-system.css">
+  <link rel="stylesheet" href="evidence.css">
+</head>
+<body>
+  <div class="sg-page">
+
+    <!-- Header -->
+    <div class="sg-header sg-animate-in">
+      <div class="sg-header-icon" style="background:rgba(168,85,247,0.15); color:var(--purple);">🔒</div>
+      <div class="sg-header-text">
+        <h1>Evidence Locker</h1>
+        <p>Secure audio &amp; video recording</p>
+      </div>
+    </div>
+
+    <!-- Recording Banner -->
+    <div id="rec-banner" class="recording-banner idle sg-animate-in" style="animation-delay:50ms">
+      <div id="rec-indicator" class="rec-indicator idle"></div>
+      <div class="rec-info">
+        <div id="rec-label" class="rec-label">Not Recording</div>
+        <div id="rec-detail" class="rec-detail">Press Start or trigger SOS to begin</div>
+      </div>
+      <div id="rec-timer" class="rec-timer">00:00</div>
+    </div>
+
+    <!-- Controls -->
+    <div class="controls-row sg-animate-in" style="animation-delay:100ms">
+      <button id="start-btn" class="sg-btn sg-btn-danger" aria-label="Start recording">
+        🔴 Start Recording
+      </button>
+      <button id="stop-btn" class="sg-btn sg-btn-outline sg-hidden" aria-label="Stop recording">
+        ⏹ Stop & Save
+      </button>
+      <button id="upload-all-btn" class="sg-btn sg-btn-outline" aria-label="Upload all pending evidence">
+        ☁ Upload All
+      </button>
+    </div>
+
+    <!-- Stats -->
+    <div class="sg-card sg-animate-in" style="animation-delay:150ms; padding:14px;">
+      <div class="stats-grid">
+        <div class="stat-card">
+          <div id="stat-total" class="stat-value" style="color:var(--blue);">0</div>
+          <div class="stat-label">Total</div>
+        </div>
+        <div class="stat-card">
+          <div id="stat-synced" class="stat-value" style="color:var(--green);">0</div>
+          <div class="stat-label">Synced</div>
+        </div>
+        <div class="stat-card">
+          <div id="stat-pending" class="stat-value" style="color:var(--amber);">0</div>
+          <div class="stat-label">Pending</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Evidence List -->
+    <div class="sg-card sg-animate-in" style="animation-delay:200ms">
+      <div class="sg-card-header">
+        <span class="sg-card-title">📁 Evidence Gallery</span>
+      </div>
+      <div id="evidence-list" class="evidence-list">
+        <div class="evidence-empty">
+          <div class="icon">🔒</div>
+          <div class="text">No evidence recorded yet.<br>Trigger SOS or press Start to begin.</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Info -->
+    <div class="sg-card sg-animate-in" style="animation-delay:250ms">
+      <div class="sg-card-header">
+        <span class="sg-card-title">ℹ How It Works</span>
+      </div>
+      <p style="font-size:0.8125rem; color:var(--text-dim); line-height:1.7;">
+        Evidence Locker <strong>automatically starts recording</strong> when any SafeGuard SOS is triggered.
+        Audio and video are captured via your device's microphone and camera, tagged with
+        <strong>GPS coordinates</strong> and timestamps, then stored securely in your device.
+        Use <strong>"Upload All"</strong> to sync evidence to the cloud.
+      </p>
+    </div>
+
+  </div>
+
+  <!-- Bottom Navigation -->
+  <nav class="sg-bottom-nav">
+    <a href="../timed-checkin-sos/index.html" class="sg-nav-item" aria-label="Check-In"><span class="icon">⏱</span>Check-In</a>
+    <a href="../emergency-sos/index.html" class="sg-nav-item" aria-label="SOS"><span class="icon">🚨</span>SOS</a>
+    <a href="../safe-circle/index.html" class="sg-nav-item" aria-label="Circle"><span class="icon">👥</span>Circle</a>
+    <a href="../evidence-locker/index.html" class="sg-nav-item active" aria-label="Evidence"><span class="icon">🔒</span>Evidence</a>
+    <a href="../ble-mesh/index.html" class="sg-nav-item" aria-label="Mesh"><span class="icon">📡</span>Mesh</a>
+  </nav>
+
+  <script src="../shared/eventBus.js"></script>
+  <script src="evidence.js"></script>
+</body>
+</html>

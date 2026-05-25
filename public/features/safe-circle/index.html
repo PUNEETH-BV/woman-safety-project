@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <title>SafeGuard — Safe Circle</title>
+  <meta name="description" content="SafeGuard Safe Circle - join a safety circle and share your walking status with trusted members">
+  <link rel="stylesheet" href="../shared/design-system.css">
+  <link rel="stylesheet" href="circle.css">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+</head>
+<body>
+  <div class="sg-page">
+
+    <!-- Header -->
+    <div class="sg-header sg-animate-in">
+      <div class="sg-header-icon" style="background:rgba(59,130,246,0.15); color:var(--blue);">👥</div>
+      <div class="sg-header-text">
+        <h1>Safe Circle</h1>
+        <p>Monitor your circle in real-time</p>
+      </div>
+    </div>
+
+    <!-- Join Section -->
+    <div id="join-section" class="sg-animate-in" style="animation-delay:50ms">
+      <div class="sg-card">
+        <div class="sg-card-header">
+          <span class="sg-card-title">🔗 Join a Circle</span>
+        </div>
+        <p style="font-size:0.8125rem; color:var(--text-dim); margin-bottom:12px;">
+          Enter a circle name to join. Others using the same name will see you.
+        </p>
+        <div class="circle-join-section">
+          <input id="circle-input" class="sg-input" placeholder='e.g. "SJCIT Campus"' aria-label="Circle name">
+          <button id="join-btn" class="sg-btn sg-btn-primary" aria-label="Join circle">Join</button>
+        </div>
+      </div>
+
+      <div class="empty-state">
+        <div class="icon">👥</div>
+        <div class="text">Join a circle to see members and share your location</div>
+      </div>
+    </div>
+
+    <!-- Active Circle Section -->
+    <div id="active-section" class="sg-hidden">
+
+      <!-- Circle Banner -->
+      <div class="circle-banner sg-animate-in" style="animation-delay:50ms">
+        <div>
+          <div id="circle-banner-name" class="circle-name">Circle Name</div>
+          <div id="circle-banner-count" class="circle-count">0 members</div>
+        </div>
+        <button id="leave-btn" class="circle-leave-btn" aria-label="Leave circle">Leave</button>
+      </div>
+
+      <!-- Walking Toggle -->
+      <div class="sg-card sg-animate-in" style="animation-delay:100ms; padding:0;">
+        <div id="walking-toggle" class="walking-toggle" role="button" tabindex="0" aria-label="Toggle walking home status">
+          <div class="left">
+            <span style="font-size:1.5rem;">🚶‍♀️</span>
+            <div>
+              <div class="label">I'm Walking Home</div>
+              <div class="desc">Broadcast your walking status to circle</div>
+            </div>
+          </div>
+          <div id="walking-switch" class="toggle-switch"></div>
+        </div>
+      </div>
+
+      <!-- Map -->
+      <div class="sg-card sg-animate-in" style="animation-delay:150ms; padding:0; overflow:hidden;">
+        <div class="sg-card-header" style="padding:14px 16px 10px;">
+          <span class="sg-card-title">🗺 Live Map</span>
+          <span class="sg-badge sg-badge-green">● Live</span>
+        </div>
+        <div id="map-container" class="map-container"></div>
+      </div>
+
+      <!-- Member List -->
+      <div class="sg-card sg-animate-in" style="animation-delay:200ms">
+        <div class="sg-card-header">
+          <span class="sg-card-title">👤 Members</span>
+        </div>
+        <div id="member-list" class="member-list"></div>
+      </div>
+
+    </div>
+
+  </div>
+
+  <!-- Bottom Navigation -->
+  <nav class="sg-bottom-nav">
+    <a href="../timed-checkin-sos/index.html" class="sg-nav-item" aria-label="Check-In"><span class="icon">⏱</span>Check-In</a>
+    <a href="../emergency-sos/index.html" class="sg-nav-item" aria-label="SOS"><span class="icon">🚨</span>SOS</a>
+    <a href="../safe-circle/index.html" class="sg-nav-item active" aria-label="Circle"><span class="icon">👥</span>Circle</a>
+    <a href="../evidence-locker/index.html" class="sg-nav-item" aria-label="Evidence"><span class="icon">🔒</span>Evidence</a>
+    <a href="../ble-mesh/index.html" class="sg-nav-item" aria-label="Mesh"><span class="icon">📡</span>Mesh</a>
+  </nav>
+
+  <script src="../shared/eventBus.js"></script>
+  <script src="circle.js"></script>
+</body>
+</html>

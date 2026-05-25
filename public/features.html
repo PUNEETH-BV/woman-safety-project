@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <title>SafeGuard — Feature Hub</title>
+  <meta name="description" content="SafeGuard Women's Safety System - access all safety features from one place">
+  <link rel="stylesheet" href="features/shared/design-system.css">
+  <style>
+    .hero {
+      text-align: center;
+      padding: 30px 0 20px;
+    }
+
+    .hero-icon {
+      font-size: 3.5rem;
+      margin-bottom: 12px;
+      display: block;
+    }
+
+    .hero h1 {
+      font-size: 2rem;
+      font-weight: 900;
+      background: linear-gradient(135deg, #f1f5f9, #94a3b8);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      margin-bottom: 8px;
+    }
+
+    .hero p {
+      font-size: 0.875rem;
+      color: var(--text-dim);
+      max-width: 300px;
+      margin: 0 auto;
+      line-height: 1.6;
+    }
+
+    .feature-grid {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      margin-top: 20px;
+    }
+
+    .feature-card {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      padding: 20px;
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-xl);
+      text-decoration: none;
+      color: var(--text);
+      transition: all var(--transition);
+      animation: sg-slide-up 400ms var(--ease) both;
+    }
+
+    .feature-card:hover {
+      transform: translateY(-2px);
+      box-shadow: var(--shadow-lg);
+      border-color: var(--border-light);
+    }
+
+    .feature-card:active {
+      transform: scale(0.98);
+    }
+
+    .feature-icon-wrapper {
+      width: 56px;
+      height: 56px;
+      border-radius: var(--radius-lg);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.75rem;
+      flex-shrink: 0;
+    }
+
+    .feature-info {
+      flex: 1;
+      min-width: 0;
+    }
+
+    .feature-name {
+      font-size: 1rem;
+      font-weight: 700;
+      margin-bottom: 4px;
+    }
+
+    .feature-desc {
+      font-size: 0.8125rem;
+      color: var(--text-dim);
+      line-height: 1.4;
+    }
+
+    .feature-arrow {
+      font-size: 1.25rem;
+      color: var(--text-muted);
+      flex-shrink: 0;
+      transition: transform var(--transition);
+    }
+
+    .feature-card:hover .feature-arrow {
+      transform: translateX(4px);
+      color: var(--text);
+    }
+
+    .version-badge {
+      text-align: center;
+      margin-top: 30px;
+      padding: 10px;
+      font-size: 0.6875rem;
+      color: var(--text-muted);
+      letter-spacing: 0.06em;
+    }
+
+    .back-link {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      color: var(--text-dim);
+      text-decoration: none;
+      font-size: 0.8125rem;
+      font-weight: 500;
+      margin-bottom: 10px;
+      transition: color var(--transition);
+    }
+
+    .back-link:hover {
+      color: var(--text);
+    }
+  </style>
+</head>
+<body>
+  <div class="sg-page">
+
+    <a href="/phone" class="back-link">← Back to Phone</a>
+
+    <!-- Hero -->
+    <div class="hero sg-animate-in">
+      <span class="hero-icon">🛡</span>
+      <h1>SafeGuard</h1>
+      <p>Advanced women's safety features — powered by AI, mesh networks, and real-time monitoring.</p>
+    </div>
+
+    <!-- Feature Grid -->
+    <div class="feature-grid">
+
+      <a href="features/timed-checkin-sos/index.html" class="feature-card" style="animation-delay:100ms" aria-label="Timed Check-In SOS">
+        <div class="feature-icon-wrapper" style="background:rgba(34,197,94,0.12); color:var(--green);">⏱</div>
+        <div class="feature-info">
+          <div class="feature-name">Timed Check-In</div>
+          <div class="feature-desc">Set a timer. If you don't check in, an automatic SOS is sent with your GPS location.</div>
+        </div>
+        <span class="feature-arrow">→</span>
+      </a>
+
+      <a href="features/emergency-sos/index.html" class="feature-card" style="animation-delay:150ms" aria-label="Emergency SOS">
+        <div class="feature-icon-wrapper" style="background:rgba(239,68,68,0.12); color:var(--red);">🚨</div>
+        <div class="feature-info">
+          <div class="feature-name">Emergency SOS</div>
+          <div class="feature-desc">One-tap panic button with shake detection and voice trigger. 3-second cancel window.</div>
+        </div>
+        <span class="feature-arrow">→</span>
+      </a>
+
+      <a href="features/safe-circle/index.html" class="feature-card" style="animation-delay:200ms" aria-label="Safe Circle">
+        <div class="feature-icon-wrapper" style="background:rgba(59,130,246,0.12); color:var(--blue);">👥</div>
+        <div class="feature-info">
+          <div class="feature-name">Safe Circle</div>
+          <div class="feature-desc">Join a safety circle. Share your "walking home" status and monitor members on a live map.</div>
+        </div>
+        <span class="feature-arrow">→</span>
+      </a>
+
+      <a href="features/evidence-locker/index.html" class="feature-card" style="animation-delay:250ms" aria-label="Evidence Locker">
+        <div class="feature-icon-wrapper" style="background:rgba(168,85,247,0.12); color:var(--purple);">🔒</div>
+        <div class="feature-info">
+          <div class="feature-name">Evidence Locker</div>
+          <div class="feature-desc">Auto-records audio &amp; video on SOS. GPS-tagged, cloud-synced, tamper-proof evidence.</div>
+        </div>
+        <span class="feature-arrow">→</span>
+      </a>
+
+      <a href="features/ble-mesh/index.html" class="feature-card" style="animation-delay:300ms" aria-label="BLE Mesh Network">
+        <div class="feature-icon-wrapper" style="background:rgba(59,130,246,0.12); color:var(--blue);">📡</div>
+        <div class="feature-info">
+          <div class="feature-name">BLE Mesh Network</div>
+          <div class="feature-desc">Encrypted SOS relay through nearby devices. Works even without internet.</div>
+        </div>
+        <span class="feature-arrow">→</span>
+      </a>
+
+    </div>
+
+    <div class="version-badge">
+      SAFEGUARD v2.0 — ALL FEATURES OPERATE INDEPENDENTLY
+    </div>
+
+  </div>
+</body>
+</html>

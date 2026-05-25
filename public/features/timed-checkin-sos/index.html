@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <title>SafeGuard — Timed Check-In</title>
+  <meta name="description" content="SafeGuard timed check-in SOS - automatic emergency alert if you don't check in on time">
+  <link rel="stylesheet" href="../shared/design-system.css">
+  <link rel="stylesheet" href="checkin.css">
+</head>
+<body>
+  <div class="sg-page">
+
+    <!-- Header -->
+    <div class="sg-header sg-animate-in">
+      <div class="sg-header-icon" style="background:rgba(34,197,94,0.15); color:var(--green);">⏱</div>
+      <div class="sg-header-text">
+        <h1>Timed Check-In</h1>
+        <p>Auto-SOS if you don't check in</p>
+      </div>
+    </div>
+
+    <!-- Status Bar -->
+    <div id="status-strip" class="status-strip idle sg-animate-in" style="animation-delay:50ms">
+      <span class="status-dot"></span>
+      <span id="status-text">○ Timer Inactive</span>
+    </div>
+
+    <!-- Timer Ring -->
+    <div class="sg-card sg-animate-in" style="animation-delay:100ms; padding:0; overflow:hidden; background:transparent; border:none;">
+      <div class="timer-container">
+        <div class="timer-ring-wrapper">
+          <svg class="timer-ring-svg" viewBox="0 0 240 240">
+            <circle class="timer-ring-bg" cx="120" cy="120" r="115"/>
+            <circle id="ring-progress" class="timer-ring-progress" cx="120" cy="120" r="115"
+              stroke-dasharray="722.57" stroke-dashoffset="0"/>
+          </svg>
+          <div class="timer-display">
+            <span id="timer-time" class="timer-time">03:00</span>
+            <span id="timer-label" class="timer-label">Remaining</span>
+          </div>
+        </div>
+
+        <!-- Safe Button -->
+        <div class="safe-btn-wrapper">
+          <button id="safe-btn" class="safe-btn disabled" aria-label="I'm Safe - Reset Timer">
+            I'M<br>SAFE
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Start/Stop -->
+    <button id="start-stop-btn" class="sg-btn sg-btn-primary sg-btn-full sg-animate-in" style="animation-delay:150ms" aria-label="Start or stop the check-in timer">
+      ▶ Start Timer
+    </button>
+
+    <!-- Interval Settings -->
+    <div class="sg-card settings-section sg-animate-in" style="animation-delay:200ms">
+      <div class="sg-card-header">
+        <span class="sg-card-title">⏱ Check-In Interval</span>
+      </div>
+      <div class="interval-selector">
+        <button class="interval-option" data-seconds="60" aria-label="1 minute interval">1 min</button>
+        <button class="interval-option" data-seconds="120" aria-label="2 minute interval">2 min</button>
+        <button class="interval-option selected" data-seconds="180" aria-label="3 minute interval">3 min</button>
+        <button class="interval-option" data-seconds="300" aria-label="5 minute interval">5 min</button>
+        <button class="interval-option" data-seconds="600" aria-label="10 minute interval">10 min</button>
+      </div>
+    </div>
+
+    <!-- Emergency Contacts -->
+    <div class="sg-card settings-section sg-animate-in" style="animation-delay:250ms">
+      <div class="sg-card-header">
+        <span class="sg-card-title">📱 Emergency Contacts</span>
+        <span class="sg-badge sg-badge-blue" id="contact-count">0</span>
+      </div>
+      <div id="contact-list" class="contact-list"></div>
+      <div class="add-contact-form">
+        <input id="contact-name" class="sg-input" placeholder="Name" aria-label="Contact name">
+        <input id="contact-phone" class="sg-input" placeholder="Phone" type="tel" aria-label="Contact phone number">
+        <button id="add-contact-btn" class="sg-btn sg-btn-primary sg-btn-sm" aria-label="Add contact">+</button>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- SOS Triggered Overlay -->
+  <div id="sos-overlay" class="sos-overlay sg-hidden">
+    <h2>🚨 SOS SENT</h2>
+    <p>Timer expired! Emergency alert with your GPS location has been dispatched to your contacts.</p>
+    <button id="sos-cancel" class="sg-btn sg-btn-outline" style="color:#fff; border-color:rgba(255,255,255,0.4);" aria-label="Dismiss SOS overlay">
+      DISMISS & RESET
+    </button>
+  </div>
+
+  <!-- Bottom Navigation -->
+  <nav class="sg-bottom-nav">
+    <a href="../timed-checkin-sos/index.html" class="sg-nav-item active" aria-label="Check-In"><span class="icon">⏱</span>Check-In</a>
+    <a href="../emergency-sos/index.html" class="sg-nav-item" aria-label="SOS"><span class="icon">🚨</span>SOS</a>
+    <a href="../safe-circle/index.html" class="sg-nav-item" aria-label="Circle"><span class="icon">👥</span>Circle</a>
+    <a href="../evidence-locker/index.html" class="sg-nav-item" aria-label="Evidence"><span class="icon">🔒</span>Evidence</a>
+    <a href="../ble-mesh/index.html" class="sg-nav-item" aria-label="Mesh"><span class="icon">📡</span>Mesh</a>
+  </nav>
+
+  <script src="../shared/eventBus.js"></script>
+  <script src="checkin.js"></script>
+</body>
+</html>

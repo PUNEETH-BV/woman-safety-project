@@ -1,0 +1,21 @@
+{
+  "name": "safety-demo-server",
+  "version": "1.0.0",
+  "description": "Women Safety Demo - WebRTC Signaling Server",
+  "main": "server/server.js",
+  "scripts": {
+    "start": "node server/server.js",
+    "build": "echo 'No build step needed'"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "dependencies": {
+    "@google/generative-ai": "^0.24.1",
+    "archiver": "^7.0.1",
+    "dotenv": "^17.4.2",
+    "pdfkit": "^0.18.0",
+    "sharp": "^0.34.5",
+    "socket.io": "^4.7.2"
+  }
+}

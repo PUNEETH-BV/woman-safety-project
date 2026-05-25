@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <title>SafeGuard — Emergency SOS</title>
+  <meta name="description" content="SafeGuard Emergency SOS - one-tap emergency alert with shake and voice triggers">
+  <link rel="stylesheet" href="../shared/design-system.css">
+  <link rel="stylesheet" href="sos.css">
+</head>
+<body>
+  <div class="sg-page">
+
+    <!-- Header -->
+    <div class="sg-header sg-animate-in">
+      <div class="sg-header-icon" style="background:rgba(239,68,68,0.15); color:var(--red);">🚨</div>
+      <div class="sg-header-text">
+        <h1>Emergency SOS</h1>
+        <p>One-tap emergency alert</p>
+      </div>
+    </div>
+
+    <!-- Status Card -->
+    <div class="sg-card sg-animate-in" style="animation-delay:50ms; padding:0;">
+      <div class="sos-status-card">
+        <div id="current-status-icon" class="sos-status-icon" style="background:rgba(34,197,94,0.15);">🟢</div>
+        <div class="sos-status-text">
+          <div id="current-status-label" class="label">Ready</div>
+          <div id="current-status-desc" class="desc">Press SOS to send emergency alert</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Giant SOS Button -->
+    <div class="sg-card sg-animate-in" style="animation-delay:100ms; background:transparent; border:none; padding:0;">
+      <div class="sos-section">
+        <div class="sos-btn-outer">
+          <div id="pulse-1" class="sos-btn-pulse-1 active"></div>
+          <div id="pulse-2" class="sos-btn-pulse-2 active"></div>
+          <div id="pulse-3" class="sos-btn-pulse-3 active"></div>
+          <button id="sos-btn" class="sos-btn" aria-label="Emergency SOS — press and hold to send alert">
+            SOS
+          </button>
+        </div>
+        <p class="sos-btn-hint">Tap to trigger • 3 second cancel window</p>
+      </div>
+    </div>
+
+    <!-- Trigger Methods -->
+    <div class="sg-card sg-animate-in" style="animation-delay:150ms">
+      <div class="sg-card-header">
+        <span class="sg-card-title">⚡ Trigger Methods</span>
+      </div>
+      <div class="trigger-grid">
+        <div id="shake-toggle" class="trigger-card" role="button" tabindex="0" aria-label="Toggle shake detection">
+          <div class="icon">📳</div>
+          <div class="name">Shake</div>
+          <div class="status">Tap to enable</div>
+        </div>
+        <div id="voice-toggle" class="trigger-card" role="button" tabindex="0" aria-label="Toggle voice trigger">
+          <div class="icon">🎙</div>
+          <div class="name">Voice</div>
+          <div class="status">Say "Hey SOS"</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Info -->
+    <div class="sg-card sg-animate-in" style="animation-delay:200ms">
+      <div class="sg-card-header">
+        <span class="sg-card-title">ℹ How It Works</span>
+      </div>
+      <p style="font-size:0.8125rem; color:var(--text-dim); line-height:1.7;">
+        Press the <strong style="color:var(--red);">SOS</strong> button to start a <strong>3-second countdown</strong>.
+        If you don't cancel, an emergency alert with your <strong>GPS location</strong> is sent via browser
+        notifications and relayed through the SafeGuard network. You can also enable
+        <strong>shake detection</strong> or <strong>voice trigger</strong> for hands-free activation.
+      </p>
+    </div>
+
+  </div>
+
+  <!-- Countdown Overlay -->
+  <div id="countdown-overlay" class="countdown-overlay sg-hidden">
+    <div class="countdown-label">SOS ACTIVATING IN</div>
+    <div id="countdown-number" class="countdown-number">3</div>
+    <button id="countdown-cancel" class="countdown-cancel" aria-label="Cancel SOS">
+      ✕ CANCEL
+    </button>
+  </div>
+
+  <!-- Sent Overlay -->
+  <div id="sent-overlay" class="sent-overlay sg-hidden">
+    <div class="checkmark">🚨</div>
+    <h2>SOS DISPATCHED</h2>
+    <div class="sent-status-steps">
+      <div id="step-gps" class="sent-step"><div class="step-icon">📍</div> GPS location captured</div>
+      <div id="step-notify" class="sent-step"><div class="step-icon">🔔</div> Browser notification sent</div>
+      <div id="step-relay" class="sent-step"><div class="step-icon">📡</div> Alert relayed to network</div>
+      <div id="step-done" class="sent-step"><div class="step-icon">✅</div> All channels confirmed</div>
+    </div>
+    <button id="sent-dismiss" class="sg-btn sg-btn-outline" style="color:#fff; border-color:rgba(255,255,255,0.4);" aria-label="Dismiss alert">
+      ACKNOWLEDGE
+    </button>
+  </div>
+
+  <!-- Bottom Navigation -->
+  <nav class="sg-bottom-nav">
+    <a href="../timed-checkin-sos/index.html" class="sg-nav-item" aria-label="Check-In"><span class="icon">⏱</span>Check-In</a>
+    <a href="../emergency-sos/index.html" class="sg-nav-item active" aria-label="SOS"><span class="icon">🚨</span>SOS</a>
+    <a href="../safe-circle/index.html" class="sg-nav-item" aria-label="Circle"><span class="icon">👥</span>Circle</a>
+    <a href="../evidence-locker/index.html" class="sg-nav-item" aria-label="Evidence"><span class="icon">🔒</span>Evidence</a>
+    <a href="../ble-mesh/index.html" class="sg-nav-item" aria-label="Mesh"><span class="icon">📡</span>Mesh</a>
+  </nav>
+
+  <script src="../shared/eventBus.js"></script>
+  <script src="sos.js"></script>
+</body>
+</html>

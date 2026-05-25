@@ -1,0 +1,8 @@
+node_modules/
+.env
+safeguard-captures/
+safeguard-captures - Copy/
+safeguard-data/
+{server,public}/
+{server,public} - Copy/
+*.log

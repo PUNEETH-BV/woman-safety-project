@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <title>SafeGuard — BLE Mesh</title>
+  <meta name="description" content="SafeGuard BLE Mesh Network - encrypted SOS relay through nearby devices">
+  <link rel="stylesheet" href="../shared/design-system.css">
+  <link rel="stylesheet" href="mesh.css">
+</head>
+<body>
+  <div class="sg-page">
+
+    <!-- Header -->
+    <div class="sg-header sg-animate-in">
+      <div class="sg-header-icon" style="background:rgba(59,130,246,0.15); color:var(--blue);">📡</div>
+      <div class="sg-header-text">
+        <h1>BLE Mesh</h1>
+        <p>Encrypted SOS relay network</p>
+      </div>
+    </div>
+
+    <!-- Status Card -->
+    <div class="sg-card sg-animate-in" style="animation-delay:50ms; padding:0;">
+      <div class="mesh-status-card">
+        <div id="mesh-status-icon" class="mesh-status-icon" style="background:rgba(100,116,139,0.15);">📡</div>
+        <div class="mesh-status-text">
+          <div id="mesh-status-label" class="mesh-status-label">Mesh Idle</div>
+          <div id="mesh-status-desc" class="mesh-status-desc">Start scanning to find peers</div>
+        </div>
+        <span id="peer-count" class="sg-badge sg-badge-blue">0</span>
+      </div>
+    </div>
+
+    <!-- Controls -->
+    <div class="mesh-controls sg-animate-in" style="animation-delay:100ms">
+      <button id="scan-btn" class="sg-btn sg-btn-primary" aria-label="Start Bluetooth scan">
+        📡 Start Scan
+      </button>
+      <button id="mesh-sos-btn" class="sg-btn sg-btn-danger" aria-label="Send SOS via mesh">
+        🚨 Send SOS via Mesh
+      </button>
+    </div>
+
+    <!-- Node Graph -->
+    <div class="sg-card sg-animate-in" style="animation-delay:150ms; padding:0; overflow:hidden; position:relative;">
+      <div class="sg-card-header" style="padding:14px 16px 10px;">
+        <span class="sg-card-title">🕸 Network Topology</span>
+      </div>
+      <div class="mesh-graph-container">
+        <svg id="mesh-graph" class="mesh-graph-svg"></svg>
+        <div class="graph-legend">
+          <div class="legend-item"><div class="legend-dot" style="background:var(--green);"></div> You</div>
+          <div class="legend-item"><div class="legend-dot" style="background:var(--blue);"></div> Peer</div>
+          <div class="legend-item"><div class="legend-dot" style="background:var(--amber);"></div> Relay</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Encryption Info -->
+    <div class="sg-card sg-animate-in" style="animation-delay:200ms; padding:0;">
+      <div class="encryption-card">
+        <div class="encryption-icon">🔐</div>
+        <div class="encryption-text">
+          All SOS packets are encrypted with <strong>AES-256-GCM</strong> via the Web Crypto API.
+          Each packet contains: SOS type, GPS coordinates, timestamp, and an anonymous user hash.
+        </div>
+      </div>
+    </div>
+
+    <!-- Peer List -->
+    <div class="sg-card sg-animate-in" style="animation-delay:250ms">
+      <div class="sg-card-header">
+        <span class="sg-card-title">📱 Discovered Peers</span>
+      </div>
+      <div id="peer-list" class="peer-list">
+        <div style="text-align:center; padding:20px; color:var(--text-muted); font-size:0.875rem;">
+          No peers discovered yet. Start a scan.
+        </div>
+      </div>
+    </div>
+
+    <!-- Info -->
+    <div class="sg-card sg-animate-in" style="animation-delay:300ms">
+      <div class="sg-card-header">
+        <span class="sg-card-title">ℹ How It Works</span>
+      </div>
+      <p style="font-size:0.8125rem; color:var(--text-dim); line-height:1.7;">
+        BLE Mesh creates a <strong>peer-to-peer safety network</strong> with nearby SafeGuard users.
+        When you trigger SOS, an <strong>encrypted packet</strong> hops through discovered mesh nodes,
+        extending your alert reach even without internet connectivity.
+        The network graph above visualizes discovered peers and relay paths in real-time.
+      </p>
+      <p style="font-size:0.75rem; color:var(--text-muted); margin-top:8px;">
+        ⚠ Note: Full BLE mesh requires native app support. This uses Web Bluetooth for basic scanning
+        with a simulation layer for the relay visualization.
+      </p>
+    </div>
+
+  </div>
+
+  <!-- Bottom Navigation -->
+  <nav class="sg-bottom-nav">
+    <a href="../timed-checkin-sos/index.html" class="sg-nav-item" aria-label="Check-In"><span class="icon">⏱</span>Check-In</a>
+    <a href="../emergency-sos/index.html" class="sg-nav-item" aria-label="SOS"><span class="icon">🚨</span>SOS</a>
+    <a href="../safe-circle/index.html" class="sg-nav-item" aria-label="Circle"><span class="icon">👥</span>Circle</a>
+    <a href="../evidence-locker/index.html" class="sg-nav-item" aria-label="Evidence"><span class="icon">🔒</span>Evidence</a>
+    <a href="../ble-mesh/index.html" class="sg-nav-item active" aria-label="Mesh"><span class="icon">📡</span>Mesh</a>
+  </nav>
+
+  <script src="../shared/eventBus.js"></script>
+  <script src="mesh.js"></script>
+</body>
+</html>

@@ -1,0 +1,1654 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>SafeGuard – Command Dashboard</title>
+  <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Bebas+Neue&display=swap"
+    rel="stylesheet" />
+  <style>
+    :root {
+      --bg: #06060d;
+      --surface: #0d0d1a;
+      --border: #1a1a30;
+      --red: #ff2244;
+      --green: #00ff88;
+      --blue: #3377ff;
+      --amber: #ffaa00;
+      --text: #c8c8e0;
+      --dim: #444466;
+    }
+
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'Space Mono', monospace;
+      min-height: 100vh;
+      display: grid;
+      grid-template-rows: auto 1fr auto;
+      grid-template-columns: 1fr;
+      overflow-x: hidden;
+    }
+
+    /* scanline overlay */
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background: repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0, 0, 0, 0.07) 2px, rgba(0, 0, 0, 0.07) 4px);
+      pointer-events: none;
+      z-index: 999;
+    }
+
+    /* ── Header ─────────────────────────────────────────── */
+    header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 16px 32px;
+      border-bottom: 1px solid var(--border);
+      background: rgba(13, 13, 26, 0.9);
+      backdrop-filter: blur(10px);
+      position: sticky;
+      top: 0;
+      z-index: 100;
+    }
+
+    .logo {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .logo-icon {
+      width: 36px;
+      height: 36px;
+      background: var(--red);
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 18px;
+      box-shadow: 0 0 20px rgba(255, 34, 68, 0.5);
+      animation: pulse-logo 2s infinite;
+    }
+
+    @keyframes pulse-logo {
+
+      0%,
+      100% {
+        box-shadow: 0 0 20px rgba(255, 34, 68, 0.5)
+      }
+
+      50% {
+        box-shadow: 0 0 40px rgba(255, 34, 68, 0.9)
+      }
+    }
+
+    .logo-text {
+      font-family: 'Bebas Neue', sans-serif;
+      font-size: 28px;
+      letter-spacing: 3px;
+      color: #fff;
+    }
+
+    .logo-sub {
+      font-size: 9px;
+      letter-spacing: 4px;
+      color: var(--dim);
+      text-transform: uppercase;
+    }
+
+    .header-right {
+      display: flex;
+      align-items: center;
+      gap: 20px;
+    }
+
+    #connection-pill {
+      padding: 6px 14px;
+      border-radius: 20px;
+      font-size: 11px;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      background: #1a1a1a;
+      border: 1px solid #333;
+      color: var(--dim);
+      transition: all 0.4s;
+    }
+
+    #connection-pill.connected {
+      background: rgba(0, 255, 136, 0.1);
+      border-color: var(--green);
+      color: var(--green);
+    }
+
+    #connection-pill.phone-live {
+      background: rgba(51, 119, 255, 0.1);
+      border-color: var(--blue);
+      color: var(--blue);
+      animation: blink-pill 1.5s infinite;
+    }
+
+    @keyframes blink-pill {
+
+      0%,
+      100% {
+        opacity: 1
+      }
+
+      50% {
+        opacity: 0.5
+      }
+    }
+
+    #clock {
+      font-size: 13px;
+      color: var(--dim);
+      letter-spacing: 1px;
+    }
+
+    /* ── Alert Banner ───────────────────────────────────── */
+    #alert-banner {
+      display: none;
+      padding: 14px 32px;
+      text-align: center;
+      font-size: 14px;
+      font-weight: 700;
+      letter-spacing: 3px;
+      text-transform: uppercase;
+      background: rgba(255, 34, 68, 0.15);
+      border-bottom: 2px solid var(--red);
+      color: var(--red);
+      animation: flash-banner 0.5s infinite;
+    }
+
+    @keyframes flash-banner {
+
+      0%,
+      100% {
+        background: rgba(255, 34, 68, 0.15)
+      }
+
+      50% {
+        background: rgba(255, 34, 68, 0.3)
+      }
+    }
+
+    /* ── Main Grid ──────────────────────────────────────── */
+    main {
+      display: grid;
+      grid-template-columns: 260px 1fr 320px 300px;
+      grid-template-rows: 1fr;
+      gap: 0;
+      height: calc(100vh - 70px);
+    }
+
+    /* ── Sidebar ────────────────────────────────────────── */
+    .sidebar {
+      background: #0a0a0f;
+      border-right: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+    .sidebar-header {
+      padding: 16px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .room-badge {
+      font-size: 10px;
+      color: #000;
+      background: var(--green);
+      padding: 4px 8px;
+      border-radius: 4px;
+      letter-spacing: 2px;
+      font-weight: bold;
+      cursor: pointer;
+    }
+    .user-count {
+      font-size: 10px;
+      color: var(--dim);
+    }
+    .user-list {
+      flex: 1;
+      overflow-y: auto;
+      padding: 10px;
+    }
+    .user-card {
+      background: #111;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 10px;
+      margin-bottom: 10px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .user-card:hover {
+      border-color: #444;
+    }
+    .user-card.active {
+      border-color: var(--green);
+      box-shadow: 0 0 10px rgba(0, 255, 136, 0.1);
+    }
+    .user-card-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 6px;
+    }
+    .user-name {
+      font-weight: bold;
+      font-size: 12px;
+      color: #fff;
+    }
+    .user-status {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--dim);
+    }
+    .user-status.online {
+      background: var(--green);
+      box-shadow: 0 0 8px var(--green);
+    }
+    .user-meta {
+      font-size: 10px;
+      color: var(--dim);
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+    .user-meta-row {
+      display: flex;
+      justify-content: space-between;
+    }
+
+    /* ── Video Panel ────────────────────────────────────── */
+    .video-panel {
+      position: relative;
+      background: #000;
+      border-right: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      overflow: hidden;
+    }
+
+    #remote-video {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+
+    .video-overlay {
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+    }
+
+    /* corner brackets */
+    .corner {
+      position: absolute;
+      width: 30px;
+      height: 30px;
+      border-color: var(--red);
+      border-style: solid;
+      border-width: 0;
+      opacity: 0.7;
+    }
+
+    .corner.tl {
+      top: 16px;
+      left: 16px;
+      border-top-width: 2px;
+      border-left-width: 2px;
+    }
+
+    .corner.tr {
+      top: 16px;
+      right: 16px;
+      border-top-width: 2px;
+      border-right-width: 2px;
+    }
+
+    .corner.bl {
+      bottom: 16px;
+      left: 16px;
+      border-bottom-width: 2px;
+      border-left-width: 2px;
+    }
+
+    .corner.br {
+      bottom: 16px;
+      right: 16px;
+      border-bottom-width: 2px;
+      border-right-width: 2px;
+    }
+
+    .video-label {
+      position: absolute;
+      top: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      font-size: 10px;
+      letter-spacing: 3px;
+      color: var(--red);
+      text-transform: uppercase;
+      background: rgba(0, 0, 0, 0.6);
+      padding: 4px 12px;
+      border-radius: 4px;
+      border: 1px solid rgba(255, 34, 68, 0.3);
+    }
+
+    .no-feed {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 12px;
+      color: var(--dim);
+    }
+
+    .no-feed .icon {
+      font-size: 48px;
+      opacity: 0.3;
+    }
+
+    .no-feed p {
+      font-size: 12px;
+      letter-spacing: 2px;
+    }
+
+    /* motion heatmap overlay */
+    #motion-overlay {
+      position: absolute;
+      inset: 0;
+      opacity: 0;
+      transition: opacity 0.5s;
+      background: radial-gradient(ellipse at center, rgba(255, 34, 68, 0.3) 0%, transparent 70%);
+    }
+
+    #motion-overlay.active {
+      opacity: 1;
+    }
+
+    /* ── Side Panel ─────────────────────────────────────── */
+    .side-panel {
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    /* ── Metric Cards ───────────────────────────────────── */
+    .metrics {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 0;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .metric {
+      padding: 16px;
+      border-right: 1px solid var(--border);
+      border-bottom: 1px solid var(--border);
+      position: relative;
+      overflow: hidden;
+    }
+
+    .metric:nth-child(even) {
+      border-right: none;
+    }
+
+    .metric:last-child,
+    .metric:nth-last-child(2) {
+      border-bottom: none;
+    }
+
+    .metric-label {
+      font-size: 9px;
+      letter-spacing: 3px;
+      text-transform: uppercase;
+      color: var(--dim);
+      margin-bottom: 6px;
+    }
+
+    .metric-value {
+      font-family: 'Bebas Neue', sans-serif;
+      font-size: 32px;
+      line-height: 1;
+      color: #fff;
+      transition: color 0.3s;
+    }
+
+    .metric-value.warn {
+      color: var(--amber);
+    }
+
+    .metric-value.danger {
+      color: var(--red);
+      text-shadow: 0 0 20px rgba(255, 34, 68, 0.5);
+    }
+
+    .metric-value.safe {
+      color: var(--green);
+    }
+
+    .metric-unit {
+      font-size: 10px;
+      color: var(--dim);
+      margin-top: 2px;
+    }
+
+    .metric-bar {
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      height: 3px;
+      background: var(--border);
+    }
+
+    .metric-bar-fill {
+      height: 100%;
+      background: var(--green);
+      transition: width 0.3s ease, background 0.3s;
+      width: 0%;
+    }
+
+    /* ── Alert Log ──────────────────────────────────────── */
+    .alert-section {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    .section-header {
+      padding: 12px 16px;
+      font-size: 9px;
+      letter-spacing: 3px;
+      text-transform: uppercase;
+      color: var(--dim);
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    #alert-count {
+      background: var(--red);
+      color: #fff;
+      padding: 2px 8px;
+      border-radius: 10px;
+      font-size: 10px;
+      display: none;
+    }
+
+    #alert-count.show {
+      display: inline;
+    }
+
+    #alert-log {
+      flex: 1;
+      overflow-y: auto;
+      padding: 0;
+      scrollbar-width: thin;
+      scrollbar-color: var(--border) transparent;
+    }
+
+    .alert-item {
+      padding: 12px 16px;
+      border-bottom: 1px solid var(--border);
+      animation: slide-in 0.3s ease;
+    }
+
+    @keyframes slide-in {
+      from {
+        opacity: 0;
+        transform: translateX(10px)
+      }
+
+      to {
+        opacity: 1;
+        transform: translateX(0)
+      }
+    }
+
+    .alert-item.PANIC {
+      border-left: 3px solid var(--red);
+      background: rgba(255, 34, 68, 0.05);
+    }
+
+    .alert-item.AUTO {
+      border-left: 3px solid var(--red);
+      background: rgba(255, 34, 68, 0.03);
+    }
+
+    .alert-item.SOUND {
+      border-left: 3px solid var(--amber);
+      background: rgba(255, 170, 0, 0.03);
+    }
+
+    .alert-item.MOTION {
+      border-left: 3px solid var(--blue);
+      background: rgba(51, 119, 255, 0.03);
+    }
+
+    .alert-item.INFO {
+      border-left: 3px solid var(--dim);
+    }
+
+    .alert-type {
+      font-size: 9px;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      margin-bottom: 4px;
+    }
+
+    .alert-item.PANIC .alert-type {
+      color: var(--red);
+    }
+
+    .alert-item.AUTO .alert-type {
+      color: var(--red);
+    }
+
+    .alert-item.SOUND .alert-type {
+      color: var(--amber);
+    }
+
+    .alert-item.MOTION .alert-type {
+      color: var(--blue);
+    }
+
+    .alert-item.INFO .alert-type {
+      color: var(--dim);
+    }
+
+    .alert-msg {
+      font-size: 12px;
+      color: var(--text);
+      margin-bottom: 4px;
+    }
+
+    .alert-time {
+      font-size: 10px;
+      color: var(--dim);
+    }
+
+    .empty-log {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      height: 100%;
+      color: var(--dim);
+      gap: 8px;
+    }
+
+    .empty-log span {
+      font-size: 32px;
+      opacity: 0.3;
+    }
+
+    .empty-log p {
+      font-size: 11px;
+      letter-spacing: 2px;
+    }
+
+    /* ── GPS Map Panel ──────────────────────────────────── */
+    .map-panel {
+      display: flex;
+      flex-direction: column;
+      border-left: 1px solid var(--border);
+      overflow: hidden;
+    }
+
+    .map-header {
+      padding: 12px 16px;
+      font-size: 9px;
+      letter-spacing: 3px;
+      text-transform: uppercase;
+      color: var(--dim);
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    #gps-status-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--dim);
+      display: inline-block;
+      margin-right: 6px;
+    }
+
+    #gps-status-dot.fix {
+      background: var(--green);
+      box-shadow: 0 0 8px var(--green);
+      animation: blink-pill 1s infinite;
+    }
+
+    #map {
+      flex: 1;
+      min-height: 0;
+      background: #0a0a14;
+    }
+
+    /* dark map tiles */
+    .leaflet-tile {
+      filter: invert(1) hue-rotate(180deg) brightness(0.85) saturate(0.7);
+    }
+
+    .leaflet-container {
+      background: #0a0a14 !important;
+    }
+
+    .gps-info-strip {
+      padding: 10px 14px;
+      border-top: 1px solid var(--border);
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+    }
+
+    .gps-chip {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 8px 10px;
+    }
+
+    .gps-chip-label {
+      font-size: 8px;
+      letter-spacing: 2px;
+      color: var(--dim);
+      text-transform: uppercase;
+    }
+
+    .gps-chip-val {
+      font-size: 13px;
+      color: #fff;
+      font-weight: 700;
+      margin-top: 2px;
+    }
+
+    .gps-chip-val.good {
+      color: var(--green);
+    }
+
+    .gps-chip-val.warn {
+      color: var(--amber);
+    }
+
+    .gps-address-bar {
+      padding: 8px 14px;
+      font-size: 11px;
+      color: var(--blue);
+      border-top: 1px solid var(--border);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      letter-spacing: 0.5px;
+    }
+
+    .trail-point {
+      width: 6px;
+      height: 6px;
+      background: var(--blue);
+      border-radius: 50%;
+      opacity: 0.6;
+    }
+
+    /* ── Audio Waveform ─────────────────────────────────── */
+    .wave-section {
+      border-top: 1px solid var(--border);
+      padding: 12px 16px;
+    }
+
+    .wave-label {
+      font-size: 9px;
+      letter-spacing: 3px;
+      text-transform: uppercase;
+      color: var(--dim);
+      margin-bottom: 8px;
+    }
+
+    .wave-bars {
+      display: flex;
+      gap: 2px;
+      align-items: flex-end;
+      height: 36px;
+    }
+
+    .wave-bar {
+      flex: 1;
+      background: var(--blue);
+      border-radius: 1px;
+      min-height: 2px;
+      transition: height 0.1s ease;
+    }
+
+    /* ── Status footer ──────────────────────────────────── */
+    footer {
+      padding: 8px 32px;
+      border-top: 1px solid var(--border);
+      display: flex;
+      justify-content: space-between;
+      font-size: 10px;
+      color: var(--dim);
+      letter-spacing: 1px;
+    }
+
+    /* ── Flash effect ───────────────────────────────────── */
+    #screen-flash {
+      position: fixed;
+      inset: 0;
+      background: rgba(255, 34, 68, 0.3);
+      pointer-events: none;
+      opacity: 0;
+      z-index: 998;
+      transition: opacity 0.1s;
+    }
+
+    #screen-flash.flash {
+      opacity: 1;
+      transition: none;
+    }
+    /* ── AI Ext ────────────────────────────────────── */
+    .ai-panel { padding: 16px; border-bottom: 1px solid var(--border); flex-shrink: 0; }
+    .ai-label { font-size: 10px; letter-spacing: 3px; color: var(--dim); text-transform: uppercase; margin-bottom: 8px; display: flex; justify-content: space-between; }
+    .ai-score-bar-bg { height: 6px; background: var(--border); border-radius: 3px; overflow: hidden; margin-bottom: 4px; }
+    .ai-score-bar-fill { height: 100%; width: 0%; background: var(--green); transition: width 0.3s, background 0.3s; }
+    .ai-insight-text { font-size: 11px; color: var(--amber); margin-top: 8px; font-style: italic; }
+    .resolve-btn { width: 100%; padding: 10px; background: #111; border: 1px solid var(--green); color: var(--green); border-radius: 4px; cursor: pointer; font-family: inherit; margin-top: 10px; font-weight: bold; }
+    .resolve-btn:hover { background: var(--green); color: #000; }
+    .gallery-section { padding: 12px 16px; border-bottom: 1px solid var(--border); flex-shrink: 0; }
+    .gallery-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 8px; max-height: 200px; overflow-y: auto;}
+    .gallery-thumb { width: 100%; aspect-ratio: 4/3; object-fit: cover; border: 1px solid var(--border); border-radius: 4px; cursor: pointer; }
+    #ai-sos-overlay { position: fixed; inset: 0; background: rgba(255, 10, 30, 0.95); z-index: 2000; display: none; flex-direction: column; align-items: center; justify-content: center; color: white; text-align: center; }
+    #ai-sos-overlay h1 { font-family: 'Bebas Neue', sans-serif; font-size: 6rem; margin-bottom: 20px; letter-spacing: 8px; animation: pulse-logo 0.5s infinite; text-shadow: 0 0 40px #fff; }
+    #ai-sos-overlay p { font-size: 1.5rem; max-width: 800px; margin-bottom: 40px; }
+  </style>
+</head>
+
+<body>
+
+  <div id="screen-flash"></div>
+  
+  <div id="ai-sos-overlay">
+    <h1>🚨 AUTONOMOUS SOS TRIGGERED</h1>
+    <p id="ai-sos-reason">Detecting severe anomaly...</p>
+    <button id="btn-resolve" class="resolve-btn" style="width:300px; background:#fff; color:#000; border:none;" onclick="hideAiSosOverlay(); resolveSOS();">ACKNOWLEDGE & MONITOR</button>
+  </div>
+
+  <!-- Header -->
+  <header>
+    <div class="logo">
+      <div class="logo-icon">🛡</div>
+      <div>
+        <div class="logo-text">SafeGuard</div>
+        <div class="logo-sub">Women Safety — Live Monitor</div>
+      </div>
+    </div>
+    <div class="header-right">
+      <div id="connection-pill">● Waiting for phone</div>
+      <div id="clock">--:--:--</div>
+    </div>
+  </header>
+
+  <!-- Alert Banner -->
+  <div id="alert-banner">🚨 &nbsp; ALERT TRIGGERED &nbsp; 🚨</div>
+
+  <!-- Main -->
+  <main>
+    
+    <!-- Sidebar / User Registry -->
+    <div class="sidebar">
+      <div class="sidebar-header">
+        <span class="room-badge" id="sidebar-room" onclick="copyRoomCode()">ROOM: --</span>
+        <span class="user-count" id="sidebar-count">0 LIVE</span>
+      </div>
+      <div class="user-list" id="user-list">
+        <!-- User cards go here -->
+      </div>
+    </div>
+
+    <!-- Video -->
+    <div class="video-panel" style="position:relative;">
+      <canvas id="bbox-canvas" style="position:absolute; inset:0; width:100%; height:100%; z-index:10; pointer-events:none;"></canvas>
+      <video id="remote-video" autoplay playsinline muted style="display:none"></video>
+      <div id="no-feed" class="no-feed">
+        <div class="icon">📷</div>
+        <p>Waiting for live feed...</p>
+      </div>
+      <div class="video-overlay">
+        <div class="corner tl"></div>
+        <div class="corner tr"></div>
+        <div class="corner bl"></div>
+        <div class="corner br"></div>
+        <div class="video-label" id="video-label">NO FEED</div>
+      </div>
+      <div id="motion-overlay"></div>
+      <div id="scan-overlay" style="position:absolute; bottom:20px; right:20px; color:var(--green); font-size:12px; letter-spacing:2px; display:none; background:rgba(0,0,0,0.5); padding:4px 10px; border:1px solid var(--green); border-radius:4px;">SCANNING...</div>
+      <div id="recording-dot" style="position:absolute; top:20px; right:60px; display:none; align-items:center; gap:8px; color:var(--red); font-size:10px; letter-spacing:1px; background:rgba(0,0,0,0.6); padding:4px 10px; border-radius:4px; border:1px solid var(--red);">
+          <span style="width:8px; height:8px; background:var(--red); border-radius:50%; animation: pulse-logo 1s infinite;"></span>
+          REC
+      </div>
+      <div id="threat-banner" style="position:absolute; top:60px; left:50%; transform:translateX(-50%); display:none; background:rgba(255,10,30,0.8); color:white; padding:10px 20px; border-radius:4px; font-weight:bold; letter-spacing:2px; z-index:100; animation: flash-banner 0.5s infinite;">⚠ MULTIPLE THREATS DETECTED</div>
+      <div id="face-status-bar" style="position:absolute; bottom:0; left:0; right:0; background:rgba(0,0,0,0.8); padding:6px 12px; display:none; justify-content:space-between; font-size:11px; letter-spacing:1px; border-top:1px solid var(--border);">
+        <span id="face-count-label" style="color:var(--green);">Faces detected: 0</span>
+        <span id="face-saving-label" style="color:var(--red);">Saving: 0</span>
+      </div>
+    </div>
+
+    <!-- Side Panel -->
+    <div class="side-panel">
+      
+      <!-- AI Agent Status -->
+      <div class="ai-panel">
+        <div class="ai-label">
+          <span>🤖 AI Threat Agent</span>
+          <span id="ai-score-val">0.00</span>
+        </div>
+        <div class="ai-score-bar-bg">
+          <div class="ai-score-bar-fill" id="ai-bar-fill"></div>
+        </div>
+        <div class="ai-insight-text" id="ai-insight-display">Agent Monitoring...</div>
+        <button class="resolve-btn" id="btn-resolve" onclick="resolveSOS()" style="display:none">✅ RESOLVE INCIDENT (GENERATE PDF)</button>
+      </div>
+
+      <!-- Metrics -->
+      <div class="metrics">
+        <div class="metric">
+          <div class="metric-label">🎤 Audio</div>
+          <div class="metric-value safe" id="m-audio">--</div>
+          <div class="metric-unit">decibels</div>
+          <div class="metric-bar">
+            <div class="metric-bar-fill" id="bar-audio"></div>
+          </div>
+        </div>
+        <div class="metric">
+          <div class="metric-label">🏃 Motion</div>
+          <div class="metric-value safe" id="m-motion">--</div>
+          <div class="metric-unit">m/s²</div>
+          <div class="metric-bar">
+            <div class="metric-bar-fill" id="bar-motion"></div>
+          </div>
+        </div>
+        <div class="metric">
+          <div class="metric-label">🔄 Gyro</div>
+          <div class="metric-value safe" id="m-gyro">--</div>
+          <div class="metric-unit">°/s</div>
+          <div class="metric-bar">
+            <div class="metric-bar-fill" id="bar-gyro"></div>
+          </div>
+        </div>
+        <div class="metric">
+          <div class="metric-label">⚠️ Alerts</div>
+          <div class="metric-value" id="m-alerts" style="color:var(--dim)">0</div>
+          <div class="metric-unit">total</div>
+          <div class="metric-bar">
+            <div class="metric-bar-fill" style="background:var(--red)" id="bar-alerts"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Alert Log -->
+      <div class="alert-section">
+        <div class="section-header">
+          <span>Alert Log <span id="alert-count">0</span></span>
+          <select id="alert-filter" style="background:#111;color:var(--dim);border:1px solid #333;font-size:9px;padding:2px;outline:none;" onchange="renderAlerts()">
+            <option value="ALL">All Users</option>
+            <option value="PANIC">Panic Only</option>
+          </select>
+        </div>
+        <div id="alert-log">
+          <div class="empty-log">
+            <span>🔕</span>
+            <p>All clear — monitoring...</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Waveform -->
+      <div class="wave-section">
+        <div class="wave-label">🔊 Audio Waveform</div>
+        <div class="wave-bars" id="wave-bars"></div>
+      </div>
+      
+      <!-- Captures Gallery -->
+      <div class="gallery-section">
+        <div class="wave-label">Saved Faces (Non-User)</div>
+        <div class="gallery-grid" id="captures-grid" style="display:flex; flex-direction:column;"></div>
+        <div style="display:flex; gap:10px; margin-top:10px;">
+            <button id="btn-download-zip" class="resolve-btn" style="flex:1; display:none; background:rgba(255,255,255,0.05);" onclick="downloadZip()">📥 Download All</button>
+            <button id="btn-clear-all" class="resolve-btn" style="flex:1; display:none; background:rgba(255,10,30,0.1); color:var(--red); border-color:var(--red);" onclick="clearGallery()">🗑 Clear All</button>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- GPS Map Panel -->
+    <div class="map-panel">
+      <div class="map-header">
+        <span><span id="gps-status-dot"></span>GPS Live Track</span>
+        <span id="gps-accuracy-badge" style="font-size:10px; color:var(--dim)">No fix</span>
+      </div>
+      <div id="map"></div>
+      <div class="gps-address-bar" id="dash-address">📍 Waiting for GPS signal...</div>
+      <div class="gps-info-strip">
+        <div class="gps-chip">
+          <div class="gps-chip-label">Latitude</div>
+          <div class="gps-chip-val" id="d-lat">—</div>
+        </div>
+        <div class="gps-chip">
+          <div class="gps-chip-label">Longitude</div>
+          <div class="gps-chip-val" id="d-lng">—</div>
+        </div>
+        <div class="gps-chip">
+          <div class="gps-chip-label">Speed</div>
+          <div class="gps-chip-val good" id="d-speed">— km/h</div>
+        </div>
+        <div class="gps-chip">
+          <div class="gps-chip-label">Altitude</div>
+          <div class="gps-chip-val" id="d-alt">—</div>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <footer>
+    <span>SafeGuard Demo v1.0</span>
+    <span id="footer-status">Initializing...</span>
+    <span id="footer-time">--</span>
+  </footer>
+
+  <script>
+const socket = io({
+  extraHeaders: {
+    "ngrok-skip-browser-warning": "true"
+  }
+});
+
+// User State
+const users = new Map(); // deviceId -> { name, color, connected, lastAlert, gps, pc, audioLevel, sensorData, stream, marker, trailCoords, trailLine }
+let activeUserId = null;
+let globalAlerts = [];
+let alertCount = 0;
+
+// Colors
+const COLORS = ["#00ff88", "#3377ff", "#ff9900", "#ff44aa", "#aa44ff", "#44ffff", "#ffff44", "#ff4444"];
+function getColor(index) { return COLORS[index % COLORS.length]; }
+
+// Room Logic
+let roomCode = new URLSearchParams(window.location.search).get('room');
+if (!roomCode) {
+  roomCode = prompt("Enter Room Code (or leave blank to auto-generate):");
+  if (!roomCode) roomCode = Math.random().toString(36).substr(2, 6).toUpperCase();
+  const newUrl = window.location.pathname + '?room=' + roomCode;
+  window.history.pushState({path: newUrl}, '', newUrl);
+}
+document.getElementById("sidebar-room").textContent = "ROOM: " + roomCode.toUpperCase();
+
+function copyRoomCode() {
+  navigator.clipboard.writeText(roomCode.toUpperCase());
+  alert("Room code copied!");
+}
+
+// Map setup
+let map;
+function initMap() {
+  map = L.map("map", { zoomControl: true, attributionControl: false });
+  L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", { maxZoom: 19 }).addTo(map);
+  map.setView([12.9716, 77.5946], 15);
+}
+initMap();
+
+// Wave bars
+const waveBars = document.getElementById("wave-bars");
+const wBars = [];
+for (let i = 0; i < 24; i++) {
+  const b = document.createElement("div");
+  b.className = "wave-bar";
+  b.style.height = "3px";
+  waveBars.appendChild(b);
+  wBars.push(b);
+}
+
+// Clock
+setInterval(() => {
+  const now = new Date();
+  document.getElementById("clock").textContent = now.toLocaleTimeString();
+  document.getElementById("footer-time").textContent = now.toLocaleDateString();
+}, 1000);
+
+// Set Footer
+function setFooter(msg) {
+  document.getElementById("footer-status").textContent = msg;
+}
+
+// ─── Socket Events ────────────────────────────────────────
+socket.on("connect", () => {
+  socket.emit("register", { role: "dashboard", room: roomCode.toUpperCase() });
+  setFooter("Connected — waiting for phones in room " + roomCode.toUpperCase());
+});
+
+socket.on("room-users", (roomUsers) => {
+  document.getElementById("sidebar-count").textContent = roomUsers.length + " LIVE";
+  
+  const currentIds = new Set(roomUsers.map(u => u.deviceId));
+  
+  // Mark offline users
+  users.forEach((userData, id) => {
+    if (!currentIds.has(id)) {
+      userData.connected = false;
+      if (userData.pc) { userData.pc.close(); userData.pc = null; }
+    }
+  });
+
+  // Add new users
+  roomUsers.forEach((u, index) => {
+    if (!users.has(u.deviceId)) {
+      users.set(u.deviceId, {
+        name: u.name,
+        color: getColor(users.size),
+        connected: true,
+        faceRegistered: u.faceRegistered || false,
+        lastAlert: "NONE",
+        gps: null,
+        pc: null,
+        audioLevel: 0,
+        sensorData: null,
+        stream: null,
+        canvasFrames: null,
+        marker: null,
+        trailCoords: [],
+        trailLine: L.polyline([], { color: getColor(users.size), weight: 2, opacity: 0.6, dashArray: "4 4" }).addTo(map)
+      });
+      addLog("INFO", u.name + " joined the room", new Date().toLocaleTimeString(), u.deviceId);
+    } else {
+      const existing = users.get(u.deviceId);
+      existing.connected = true;
+      existing.faceRegistered = u.faceRegistered || existing.faceRegistered;
+    }
+  });
+
+  // Select first user if none active
+  if (!activeUserId && currentIds.size > 0) {
+    selectUser(Array.from(currentIds)[0]);
+  }
+
+  renderSidebar();
+});
+
+// Render Sidebar
+function renderSidebar() {
+  const list = document.getElementById("user-list");
+  list.innerHTML = "";
+  
+  users.forEach((u, id) => {
+    const card = document.createElement("div");
+    card.className = "user-card" + (activeUserId === id ? " active" : "");
+    if (activeUserId === id) card.style.borderColor = u.color;
+    
+    card.onclick = () => selectUser(id);
+    
+    card.innerHTML = `
+      <div class="user-card-header">
+        <span class="user-name" style="color: ${u.color}">${u.name}</span>
+        <div class="user-status ${u.connected ? 'online' : ''}"></div>
+      </div>
+      <div class="user-meta">
+        <div class="user-meta-row">
+          <span>Alert: <span style="color:${u.lastAlert === 'PANIC' ? '#ff4444' : '#888'}">${u.lastAlert}</span></span>
+          <span style="color:${u.faceRegistered ? 'var(--green)' : 'var(--dim)'}">${u.faceRegistered ? '✓ Registered' : 'Unregistered'}</span>
+        </div>
+      </div>
+    `;
+    list.appendChild(card);
+  });
+}
+
+function selectUser(deviceId) {
+  if (!users.has(deviceId)) return;
+  activeUserId = deviceId;
+  const user = users.get(deviceId);
+  
+  renderSidebar();
+  
+  // Update Video
+  document.getElementById("remote-video").srcObject = user.stream;
+  if (user.stream) {
+    document.getElementById("remote-video").style.display = "block";
+    document.getElementById("no-feed").style.display = "none";
+    document.getElementById("video-label").textContent = "🔴 " + user.name;
+    document.getElementById("video-label").style.color = user.color;
+    document.getElementById("video-label").style.borderColor = user.color;
+    
+    const vid = document.getElementById("remote-video");
+    vid.muted = false; // try with audio first
+    vid.play().catch(e => {
+      console.warn("Autoplay blocked, trying muted:", e);
+      vid.muted = true;
+      vid.play().catch(e2 => console.warn("Still blocked:", e2));
+    });
+  } else {
+    document.getElementById("remote-video").style.display = "none";
+    document.getElementById("no-feed").style.display = "flex";
+    document.getElementById("video-label").textContent = "NO FEED";
+  }
+
+  // Hide all canvas feeds, show active one
+  document.querySelectorAll('.canvas-feed-img').forEach(img => img.style.display = 'none');
+  const activeCanvas = document.getElementById('canvas-feed-' + deviceId);
+  if (activeCanvas && !user.stream) activeCanvas.style.display = 'block';
+
+  // Update Map
+  if (user.gps) map.panTo([user.gps.lat, user.gps.lng]);
+
+  // Force render of last sensor data
+  if (user.sensorData) updateDashboardMetrics(user.sensorData);
+  
+  // Render alerts
+  renderAlerts();
+  
+  setFooter("Viewing feed: " + user.name);
+}
+
+// ─── WebRTC ───────────────────────────────────────────────
+socket.on("offer", async (data) => {
+  const deviceId = data.deviceId;
+  if (!users.has(deviceId)) return;
+  const user = users.get(deviceId);
+  
+  try {
+    user.pc = new RTCPeerConnection({
+      iceServers: [
+        { urls: 'stun:stun.l.google.com:19302' },
+        { urls: 'turn:openrelay.metered.ca:80', username: 'openrelayproject', credential: 'openrelayproject' },
+        { urls: 'turn:openrelay.metered.ca:443', username: 'openrelayproject', credential: 'openrelayproject' }
+      ]
+    });
+
+    user.pc.ontrack = (e) => {
+      user.stream = e.streams[0];
+      if (activeUserId === deviceId) selectUser(deviceId);
+    };
+
+    user.pc.onicecandidate = (e) => {
+      if (e.candidate) {
+        socket.emit("ice-candidate", {
+          candidate: e.candidate.candidate,
+          sdpMid: e.candidate.sdpMid,
+          sdpMLineIndex: e.candidate.sdpMLineIndex,
+          target: "phone",
+          targetDeviceId: deviceId
+        });
+      }
+    };
+
+    await user.pc.setRemoteDescription(new RTCSessionDescription(data));
+    const answer = await user.pc.createAnswer();
+    await user.pc.setLocalDescription(answer);
+    socket.emit("answer", { type: answer.type, sdp: answer.sdp, targetDeviceId: deviceId });
+  } catch (e) {
+    console.error("WebRTC error for " + deviceId, e);
+  }
+});
+
+socket.on("ice-candidate", async (data) => {
+  const user = users.get(data.deviceId);
+  if (user && user.pc) {
+    try { await user.pc.addIceCandidate(new RTCIceCandidate(data)); } catch (e) { }
+  }
+});
+
+// ─── Video Canvas Fallback ────────────────────────────────
+socket.on('video-frame', (data) => {
+  const deviceId = data.deviceId;
+  const frame = data.frame;
+  if (!users.has(deviceId)) return;
+  
+  const user = users.get(deviceId);
+  
+  let img = document.getElementById('canvas-feed-' + deviceId);
+  if (!img) {
+    img = document.createElement('img');
+    img.id = 'canvas-feed-' + deviceId;
+    img.className = 'canvas-feed-img';
+    img.style.cssText = 'width:100%;height:100%;object-fit:cover;position:absolute;inset:0;z-index:1;';
+    document.querySelector('.video-panel').appendChild(img);
+  }
+  img.src = frame;
+  
+  if (activeUserId === deviceId && !user.stream) {
+    img.style.display = 'block';
+    document.getElementById('no-feed').style.display = 'none';
+    document.getElementById("video-label").textContent = "🔴 " + user.name + " (Canvas)";
+  } else {
+    img.style.display = 'none';
+  }
+});
+
+// ─── Sensor Data ──────────────────────────────────────────
+socket.on("sensor-data", (data) => {
+  const deviceId = data.deviceId;
+  if (!users.has(deviceId)) return;
+  const user = users.get(deviceId);
+  user.sensorData = data;
+  user.audioLevel = data.audio.level;
+
+  if (activeUserId === deviceId) {
+    updateDashboardMetrics(data);
+  }
+});
+
+function updateDashboardMetrics(d) {
+  updateMetric("m-audio", "bar-audio", d.audio.db, 40, 100, 65, 80);
+  updateMetric("m-motion", "bar-motion", d.motion.magnitude, 0, 40, 12, 22);
+
+  const gmag = Math.sqrt(Math.pow(d.motion.gx, 2) + Math.pow(d.motion.gy, 2) + Math.pow(d.motion.gz, 2));
+  updateMetric("m-gyro", "bar-gyro", gmag.toFixed(1), 0, 300, 80, 180);
+
+  const level = d.audio.level;
+  const bars = wBars.length;
+  for (let i = 0; i < bars; i++) {
+    const h = Math.random() * (level / 255) * 36 + 2;
+    wBars[i].style.height = h + "px";
+    wBars[i].style.background = level > 180 ? "var(--red)" : level > 120 ? "var(--amber)" : "var(--blue)";
+  }
+}
+
+socket.on("ai-score-update", (data) => {
+  if (data.deviceId === activeUserId) {
+    const val = (data.score * 100).toFixed(0);
+    document.getElementById("ai-score-val").textContent = data.score.toFixed(2);
+    const bar = document.getElementById("ai-bar-fill");
+    bar.style.width = val + "%";
+    bar.style.background = data.score > 0.85 ? "var(--red)" : data.score > 0.5 ? "var(--amber)" : "var(--green)";
+  }
+});
+
+socket.on("new-capture", (data) => {
+  if (data.deviceId === activeUserId) {
+    const grid = document.getElementById("captures-grid");
+    document.getElementById("btn-download-zip").style.display = "block";
+    document.getElementById("btn-clear-all").style.display = "block";
+    
+    let personCard = document.getElementById(`person-${data.faceId}`);
+    if (!personCard) {
+        personCard = document.createElement("div");
+        personCard.id = `person-${data.faceId}`;
+        personCard.style.cssText = "background:#111; border:1px solid var(--border); border-radius:6px; padding:10px; margin-bottom:10px; width:100%; grid-column: 1 / -1;";
+        const genderIcon = (data.gender || "").toLowerCase().includes("female") ? "♀" : "♂";
+        const genderColor = (data.gender || "").toLowerCase().includes("female") ? "#f472b6" : "#60a5fa";
+        personCard.innerHTML = `
+            <div style="display:flex; gap: 12px; align-items:center;">
+                <div id="thumbs-${data.faceId}" style="display:flex; gap:4px; overflow-x:auto; width: 80px; flex-shrink: 0;"></div>
+                <div style="flex-grow: 1; font-size:11px; color:var(--text); line-height: 1.5;">
+                    <div style="color:var(--red); font-weight:bold; letter-spacing:1px;">${data.faceId}</div>
+                    <div style="color:${genderColor}; font-weight:bold;">${genderIcon} ${data.gender || 'Unknown'} · Age: ${data.estimatedAge || '?'}</div>
+                    <div>First seen: <span id="time-${data.faceId}">${data.firstSeen || new Date().toLocaleTimeString()}</span></div>
+                    <div id="desc-${data.faceId}" style="opacity:0.8; font-style:italic; font-size:9px; margin-top:2px;">${data.aiDescription || 'Analyzing features...'}</div>
+                </div>
+                <div style="color:var(--dim); font-size:16px; cursor:pointer;" onclick="downloadZip()">📥</div>
+            </div>
+        `;
+        grid.prepend(personCard);
+    }
+    
+    const thumbs = document.getElementById(`thumbs-${data.faceId}`);
+    const img = document.createElement("img");
+    img.src = data.frame; // Frame sent from server
+    img.className = "gallery-thumb";
+    img.style.width = "80px";
+    img.style.height = "60px";
+    thumbs.appendChild(img);
+    
+    // Auto scroll to latest
+    thumbs.scrollLeft = thumbs.scrollWidth;
+  }
+});
+
+// ─── GPS Data ─────────────────────────────────────────────
+socket.on("gps-update", (data) => {
+  const deviceId = data.deviceId;
+  if (!users.has(deviceId)) return;
+  const user = users.get(deviceId);
+  user.gps = data;
+
+  const latlng = [data.lat, data.lng];
+  
+  if (!user.marker) {
+    const icon = L.divIcon({
+      className: "",
+      html: `<div style="width:16px;height:16px;background:${user.color};border:3px solid #fff;border-radius:50%;box-shadow:0 0 12px ${user.color};"></div>`,
+      iconSize: [16, 16],
+      iconAnchor: [8, 8]
+    });
+    user.marker = L.marker(latlng, { icon }).addTo(map).on('click', () => selectUser(deviceId));
+  } else {
+    user.marker.setLatLng(latlng);
+  }
+
+  user.trailCoords.push(latlng);
+  if (user.trailCoords.length > 200) user.trailCoords.shift();
+  user.trailLine.setLatLngs(user.trailCoords);
+
+  if (activeUserId === deviceId) {
+    document.getElementById("d-lat").textContent = data.lat.toFixed(6);
+    document.getElementById("d-lng").textContent = data.lng.toFixed(6);
+    document.getElementById("d-speed").textContent = data.speed ? data.speed + " km/h" : "0 km/h";
+    document.getElementById("d-alt").textContent = data.altitude ? data.altitude + " m" : "—";
+    const acc = data.accuracy;
+    const badge = document.getElementById("gps-accuracy-badge");
+    if (acc) {
+      badge.textContent = `±${parseFloat(acc).toFixed(0)}m`;
+      badge.style.color = acc < 20 ? "var(--green)" : acc < 50 ? "var(--amber)" : "var(--red)";
+    }
+    document.getElementById("gps-status-dot").className = "fix";
+  }
+});
+
+// ─── Alerts ───────────────────────────────────────────────
+socket.on("alert", (data) => {
+  const deviceId = data.deviceId;
+  if (!users.has(deviceId)) return;
+  const user = users.get(deviceId);
+  
+  user.lastAlert = data.type;
+  renderSidebar();
+
+  alertCount++;
+  const countEl = document.getElementById("alert-count");
+  countEl.textContent = alertCount;
+  countEl.className = "show";
+  if (activeUserId === deviceId) document.getElementById("m-alerts").textContent = alertCount;
+
+  const alertTimestamp = (data.data && data.data.timestamp) ? data.data.timestamp : Date.now();
+  const alertObj = { ...data, time: new Date(alertTimestamp).toLocaleTimeString(), user };
+  globalAlerts.unshift(alertObj);
+  renderAlerts();
+
+  if (data.type === "PANIC") {
+    // Pulse map marker (only if GPS marker exists)
+    if (user.marker && user.marker._icon && user.marker._icon.firstChild) {
+      const el = user.marker._icon.firstChild;
+      el.style.animation = "pulse-logo 1s infinite";
+      el.style.background = "#ff2244";
+      el.style.boxShadow = "0 0 20px #ff2244";
+      setTimeout(() => {
+        el.style.animation = "";
+        el.style.background = user.color;
+        el.style.boxShadow = "0 0 12px " + user.color;
+        user.lastAlert = "NONE";
+        renderSidebar();
+      }, 15000);
+    }
+
+    // Full screen broadcast
+    flashScreen();
+    showAlertBanner(`[${user.name}] PANIC BUTTON PRESSED`);
+    playAlertSound();
+    
+    if (data.aiInsight) {
+      const insightDisplay = document.getElementById("ai-insight-display");
+      if (insightDisplay) insightDisplay.textContent = data.aiInsight;
+      
+      const sosReason = document.getElementById("ai-sos-reason");
+      if (sosReason) sosReason.textContent = data.aiInsight;
+      
+      const sosOverlay = document.getElementById("ai-sos-overlay");
+      if (sosOverlay) sosOverlay.style.display = "flex";
+      
+      const btnResolve = document.getElementById("btn-resolve");
+      if (btnResolve) btnResolve.style.display = "block";
+    }
+  }
+});
+
+function hideAiSosOverlay() {
+  document.getElementById("ai-sos-overlay").style.display = "none";
+}
+
+function resolveSOS() {
+  if (!activeUserId) return;
+  socket.emit("resolve-sos", { deviceId: activeUserId });
+  document.getElementById("btn-resolve").style.display = "none";
+  document.getElementById("ai-insight-display").textContent = "Agent Monitoring...";
+  clearGallery(); // Clear gallery for next event
+}
+
+function clearGallery() {
+  document.getElementById("captures-grid").innerHTML = "";
+  document.getElementById("btn-download-zip").style.display = "none";
+  document.getElementById("btn-clear-all").style.display = "none";
+}
+
+function renderAlerts() {
+  const log = document.getElementById("alert-log");
+  log.innerHTML = "";
+  
+  const filter = document.getElementById("alert-filter").value;
+  let filtered = globalAlerts;
+  
+  if (filter === "PANIC") filtered = globalAlerts.filter(a => a.type === "PANIC");
+
+  if (filtered.length === 0) {
+    log.innerHTML = `<div class="empty-log"><span>🔕</span><p>All clear — monitoring...</p></div>`;
+    return;
+  }
+
+  filtered.forEach(a => {
+    const item = document.createElement("div");
+    item.className = "alert-item " + a.type;
+    item.style.borderLeftColor = a.user.color;
+    item.innerHTML = `
+      <div class="alert-type" style="color:${a.user.color}">[${a.user.name}] ${a.type}</div>
+      <div class="alert-msg">${a.reason}</div>
+      <div class="alert-time">${a.time}</div>
+    `;
+    log.appendChild(item);
+  });
+}
+
+function addLog(type, msg, time, deviceId) {
+  const user = users.get(deviceId) || { name: "System", color: "#888" };
+  globalAlerts.unshift({ type, reason: msg, time, user });
+  renderAlerts();
+}
+
+// ─── Helpers ──────────────────────────────────────────────
+function updateMetric(valueId, barId, val, min, max, warnAt, dangerAt) {
+  const el = document.getElementById(valueId);
+  const bar = document.getElementById(barId);
+  el.textContent = parseFloat(val).toFixed(1);
+  const pct = Math.min(100, ((val - min) / (max - min)) * 100);
+  bar.style.width = pct + "%";
+
+  if (val >= dangerAt) {
+    el.className = "metric-value danger";
+    bar.style.background = "var(--red)";
+  } else if (val >= warnAt) {
+    el.className = "metric-value warn";
+    bar.style.background = "var(--amber)";
+  } else {
+    el.className = "metric-value safe";
+    bar.style.background = "var(--green)";
+  }
+}
+
+function flashScreen() {
+  const f = document.getElementById("screen-flash");
+  f.className = "flash";
+  setTimeout(() => f.className = "", 200);
+  setTimeout(() => { f.className = "flash"; setTimeout(() => f.className = "", 200); }, 300);
+}
+
+let bannerTimeout;
+function showAlertBanner(msg) {
+  const b = document.getElementById("alert-banner");
+  b.textContent = `🚨   ${msg.toUpperCase()}   🚨`;
+  b.style.display = "block";
+  clearTimeout(bannerTimeout);
+  bannerTimeout = setTimeout(() => b.style.display = "none", 10000);
+}
+
+function playAlertSound() {
+  const AudioContext = window.AudioContext || window.webkitAudioContext;
+  if (!AudioContext) return;
+  const ctx = new AudioContext();
+  const osc = ctx.createOscillator();
+  const gain = ctx.createGain();
+  osc.connect(gain);
+  gain.connect(ctx.destination);
+  osc.type = "square";
+  osc.frequency.setValueAtTime(880, ctx.currentTime);
+  osc.frequency.exponentialRampToValueAtTime(440, ctx.currentTime + 0.5);
+  gain.gain.setValueAtTime(0.1, ctx.currentTime);
+  gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 1);
+  osc.start();
+  osc.stop(ctx.currentTime + 1);
+}
+
+  // Zip Download
+  function downloadZip() {
+    if (!activeUserId) return;
+    window.location.href = `/download/${activeUserId}`;
+  }
+
+  let lastFaceTime = Date.now();
+  socket.on("annotated-frame", (data) => {
+    if (data.deviceId !== activeUserId) return;
+    const canvas = document.getElementById("bbox-canvas");
+    const ctx = canvas.getContext("2d");
+    const scanOverlay = document.getElementById("scan-overlay");
+    const threatBanner = document.getElementById("threat-banner");
+    const recIndicator = document.getElementById("recording-dot");
+    
+    recIndicator.style.display = 'flex';
+
+    if (canvas.width !== canvas.offsetWidth || canvas.height !== canvas.offsetHeight) {
+       canvas.width = canvas.offsetWidth;
+       canvas.height = canvas.offsetHeight;
+    }
+    
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    
+    let unknownCount = 0;
+    if (data.faces && data.faces.length > 0) {
+       lastFaceTime = Date.now();
+       scanOverlay.style.display = 'none';
+       
+       data.faces.forEach(face => {
+          if (!face.is_registered_user) unknownCount++;
+
+          const w = canvas.width;
+          const h = canvas.height;
+          
+          const x = (face.bbox.x / 100) * w;
+          const y = (face.bbox.y / 100) * h;
+          const boxW = (face.bbox.w / 100) * w;
+          const boxH = (face.bbox.h / 100) * h;
+
+          // Corner bracket style for a professional look
+          const cornerLen = Math.min(boxW, boxH) * 0.2;
+          const lw = 3;
+          
+          if (face.is_registered_user) {
+              // ── GREEN: Registered User ──
+              ctx.strokeStyle = "#22c55e";
+              ctx.lineWidth = lw;
+              ctx.shadowColor = "rgba(34,197,94,0.5)";
+              ctx.shadowBlur = 8;
+              ctx.strokeRect(x, y, boxW, boxH);
+              ctx.shadowBlur = 0;
+
+              // Label: "✓ USER" at top
+              ctx.font = "bold 13px Arial";
+              const label = "✓ USER";
+              const textW = ctx.measureText(label).width;
+              const lx = x + (boxW / 2) - (textW / 2) - 8;
+              const ly = y - 4;
+              ctx.fillStyle = "#22c55e";
+              ctx.fillRect(lx, ly - 16, textW + 16, 20);
+              ctx.fillStyle = "#ffffff";
+              ctx.fillText(label, lx + 8, ly - 1);
+
+          } else {
+              // ── RED: Non-User / Stranger ──
+              ctx.strokeStyle = "#ef4444";
+              ctx.lineWidth = lw;
+              ctx.shadowColor = "rgba(239,68,68,0.5)";
+              ctx.shadowBlur = 8;
+              ctx.strokeRect(x, y, boxW, boxH);
+              ctx.shadowBlur = 0;
+
+              // Build label: "Male, 25-30" or "Female, 20-25"
+              const gender = face.gender || "Unknown";
+              const age = face.estimated_age || "?";
+              const topLabel = gender + ", Age: " + age;
+
+              // Top label background
+              ctx.font = "bold 13px Arial";
+              const topW = ctx.measureText(topLabel).width;
+              ctx.fillStyle = "#ef4444";
+              ctx.fillRect(x, y - 24, topW + 16, 22);
+              // Top label text
+              ctx.fillStyle = "#ffffff";
+              ctx.fillText(topLabel, x + 8, y - 8);
+
+              // Description below the box
+              if (face.description) {
+                  ctx.font = "11px Arial";
+                  const desc = face.description.length > 40 ? face.description.substring(0, 40) + "…" : face.description;
+                  const descW = ctx.measureText(desc).width;
+                  ctx.fillStyle = "rgba(0, 0, 0, 0.75)";
+                  ctx.fillRect(x, y + boxH + 2, descW + 12, 18);
+                  ctx.fillStyle = "#f1f5f9";
+                  ctx.fillText(desc, x + 6, y + boxH + 15);
+              }
+          }
+       });
+    } else {
+       if (Date.now() - lastFaceTime > 5000) {
+          scanOverlay.style.display = 'block';
+       }
+    }
+
+    threatBanner.style.display = unknownCount >= 3 ? 'block' : 'none';
+
+    // Update face status bar
+    const statusBar = document.getElementById("face-status-bar");
+    const totalFaces = data.faces ? data.faces.length : 0;
+    statusBar.style.display = "flex";
+    document.getElementById("face-count-label").textContent = `Faces detected: ${totalFaces}`;
+    document.getElementById("face-saving-label").textContent = `Saving: ${unknownCount}`;
+  });
+
+  socket.on("STOP_CAPTURE", () => {
+    document.getElementById("recording-dot").style.display = 'none';
+    document.getElementById("threat-banner").style.display = 'none';
+    document.getElementById("scan-overlay").style.display = 'none';
+  });
+
+  // (Removed duplicate new-capture handler)
+</script>
+</body>
+</html>

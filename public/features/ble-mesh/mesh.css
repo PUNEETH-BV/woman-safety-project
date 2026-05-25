@@ -1,0 +1,248 @@
+/* ═══════════════════════════════════════════════
+   Feature 5: BLE Mesh Network — Styles
+   ═══════════════════════════════════════════════ */
+
+/* ── Mesh Status ── */
+.mesh-status-card {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 16px;
+}
+
+.mesh-status-icon {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.5rem;
+  flex-shrink: 0;
+}
+
+.mesh-status-text {
+  flex: 1;
+}
+
+.mesh-status-label {
+  font-size: 0.9375rem;
+  font-weight: 700;
+}
+
+.mesh-status-desc {
+  font-size: 0.75rem;
+  color: var(--text-dim);
+  margin-top: 2px;
+}
+
+/* ── Node Graph SVG ── */
+.mesh-graph-container {
+  width: 100%;
+  aspect-ratio: 1;
+  max-height: 350px;
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  background: radial-gradient(circle at center, rgba(59,130,246,0.05), transparent 70%);
+  border: 1px solid var(--border);
+  position: relative;
+}
+
+.mesh-graph-svg {
+  width: 100%;
+  height: 100%;
+}
+
+/* ── Node Styles ── */
+.mesh-node {
+  cursor: pointer;
+  transition: transform 0.3s ease;
+}
+
+.mesh-node-circle {
+  transition: r 0.3s ease, fill 0.3s ease;
+}
+
+.mesh-node-label {
+  fill: var(--text-dim);
+  font-family: 'Inter', system-ui, sans-serif;
+  font-size: 9px;
+  font-weight: 500;
+  text-anchor: middle;
+}
+
+.mesh-node-you .mesh-node-circle {
+  fill: var(--green);
+  filter: drop-shadow(0 0 8px rgba(34, 197, 94, 0.5));
+}
+
+.mesh-node-peer .mesh-node-circle {
+  fill: var(--blue);
+  filter: drop-shadow(0 0 6px rgba(59, 130, 246, 0.4));
+}
+
+.mesh-node-relay .mesh-node-circle {
+  fill: var(--amber);
+  filter: drop-shadow(0 0 6px rgba(245, 158, 11, 0.4));
+}
+
+.mesh-node-offline .mesh-node-circle {
+  fill: var(--text-muted);
+  opacity: 0.4;
+}
+
+/* ── Edge Lines ── */
+.mesh-edge {
+  stroke: var(--border);
+  stroke-width: 1;
+  stroke-dasharray: 4 4;
+  opacity: 0.5;
+}
+
+.mesh-edge.active {
+  stroke: var(--green);
+  stroke-width: 2;
+  stroke-dasharray: none;
+  opacity: 0.8;
+}
+
+/* ── Signal Animation ── */
+.signal-packet {
+  fill: var(--red);
+  filter: drop-shadow(0 0 6px var(--red-glow));
+}
+
+@keyframes signal-hop {
+  0% { opacity: 1; r: 4; }
+  50% { opacity: 1; r: 6; }
+  100% { opacity: 0; r: 2; }
+}
+
+.signal-animate {
+  animation: signal-hop 0.8s ease forwards;
+}
+
+/* ── Peer List ── */
+.peer-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.peer-card {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  animation: sg-slide-up 300ms var(--ease) both;
+}
+
+.peer-icon {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1rem;
+  flex-shrink: 0;
+}
+
+.peer-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.peer-name {
+  font-size: 0.875rem;
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.peer-meta {
+  font-size: 0.6875rem;
+  color: var(--text-dim);
+  margin-top: 2px;
+}
+
+.peer-signal {
+  display: flex;
+  gap: 2px;
+  align-items: flex-end;
+  height: 16px;
+}
+
+.peer-signal-bar {
+  width: 3px;
+  border-radius: 1px;
+  background: var(--border);
+  transition: background 0.3s ease;
+}
+
+.peer-signal-bar.active {
+  background: var(--green);
+}
+
+/* ── Controls ── */
+.mesh-controls {
+  display: flex;
+  gap: 8px;
+}
+
+.mesh-controls .sg-btn {
+  flex: 1;
+}
+
+/* ── Encryption Info ── */
+.encryption-card {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 16px;
+  background: rgba(34, 197, 94, 0.05);
+  border: 1px solid rgba(34, 197, 94, 0.15);
+  border-radius: var(--radius-lg);
+}
+
+.encryption-icon {
+  font-size: 1.5rem;
+  flex-shrink: 0;
+}
+
+.encryption-text {
+  font-size: 0.8125rem;
+  color: var(--text-dim);
+  line-height: 1.5;
+}
+
+.encryption-text strong {
+  color: var(--green);
+}
+
+/* ── Graph Overlay Labels ── */
+.graph-legend {
+  position: absolute;
+  bottom: 8px;
+  left: 8px;
+  display: flex;
+  gap: 12px;
+  font-size: 0.625rem;
+  color: var(--text-muted);
+}
+
+.legend-item {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.legend-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+}

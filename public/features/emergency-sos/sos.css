@@ -1,0 +1,275 @@
+/* ═══════════════════════════════════════════════
+   Feature 2: Emergency SOS — Styles
+   ═══════════════════════════════════════════════ */
+
+/* ── Giant SOS Button ── */
+.sos-section {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 20px 0 30px;
+}
+
+.sos-btn-outer {
+  position: relative;
+  width: 240px;
+  height: 240px;
+}
+
+.sos-btn-pulse-1,
+.sos-btn-pulse-2,
+.sos-btn-pulse-3 {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  border: 2px solid var(--red);
+  opacity: 0;
+}
+
+.sos-btn-pulse-1.active { animation: sg-pulse-ring 2s 0s infinite; }
+.sos-btn-pulse-2.active { animation: sg-pulse-ring 2s 0.6s infinite; }
+.sos-btn-pulse-3.active { animation: sg-pulse-ring 2s 1.2s infinite; }
+
+.sos-btn {
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  border: none;
+  background: radial-gradient(circle at 40% 35%, #f87171, var(--red), #991b1b);
+  color: #fff;
+  font-family: inherit;
+  font-size: 2.5rem;
+  font-weight: 900;
+  cursor: pointer;
+  position: relative;
+  z-index: 2;
+  transition: all var(--transition);
+  box-shadow: 0 0 40px var(--red-glow), 0 8px 32px rgba(0,0,0,0.5);
+  letter-spacing: 0.15em;
+  text-shadow: 0 2px 4px rgba(0,0,0,0.3);
+  -webkit-tap-highlight-color: transparent;
+}
+
+.sos-btn:hover {
+  transform: scale(1.04);
+  box-shadow: var(--shadow-glow-red), 0 12px 40px rgba(0,0,0,0.6);
+}
+
+.sos-btn:active {
+  transform: scale(0.95);
+}
+
+.sos-btn-hint {
+  margin-top: 16px;
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  text-align: center;
+}
+
+/* ── Countdown Overlay ── */
+.countdown-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.97);
+  z-index: 300;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 20px;
+  animation: sg-fade-in 200ms ease;
+}
+
+.countdown-number {
+  font-size: 8rem;
+  font-weight: 900;
+  color: var(--red);
+  line-height: 1;
+  text-shadow: 0 0 60px var(--red-glow);
+  animation: countdown-pop 1s infinite;
+}
+
+@keyframes countdown-pop {
+  0% { transform: scale(1.2); opacity: 0.5; }
+  50% { transform: scale(1); opacity: 1; }
+  100% { transform: scale(0.95); opacity: 0.8; }
+}
+
+.countdown-label {
+  font-size: 1rem;
+  color: var(--text-dim);
+  text-transform: uppercase;
+  letter-spacing: 0.15em;
+}
+
+.countdown-cancel {
+  margin-top: 20px;
+  padding: 14px 40px;
+  background: transparent;
+  border: 2px solid rgba(255,255,255,0.3);
+  border-radius: var(--radius-lg);
+  color: #fff;
+  font-family: inherit;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all var(--transition);
+}
+
+.countdown-cancel:hover {
+  border-color: #fff;
+  background: rgba(255,255,255,0.1);
+}
+
+/* ── Status Card ── */
+.sos-status-card {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 16px;
+}
+
+.sos-status-icon {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.125rem;
+  flex-shrink: 0;
+}
+
+.sos-status-text {
+  flex: 1;
+}
+
+.sos-status-text .label {
+  font-size: 0.8125rem;
+  font-weight: 600;
+}
+
+.sos-status-text .desc {
+  font-size: 0.75rem;
+  color: var(--text-dim);
+  margin-top: 2px;
+}
+
+/* ── Trigger Methods ── */
+.trigger-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.trigger-card {
+  padding: 16px 14px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  text-align: center;
+  cursor: pointer;
+  transition: all var(--transition);
+}
+
+.trigger-card:hover {
+  border-color: var(--border-light);
+  background: var(--bg-elevated);
+}
+
+.trigger-card.active {
+  border-color: var(--green);
+  background: rgba(34, 197, 94, 0.05);
+}
+
+.trigger-card .icon {
+  font-size: 1.75rem;
+  margin-bottom: 6px;
+}
+
+.trigger-card .name {
+  font-size: 0.8125rem;
+  font-weight: 600;
+}
+
+.trigger-card .status {
+  font-size: 0.6875rem;
+  color: var(--text-muted);
+  margin-top: 4px;
+}
+
+.trigger-card.active .status {
+  color: var(--green);
+}
+
+/* ── Sent Overlay ── */
+.sent-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(239, 68, 68, 0.95);
+  z-index: 300;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  text-align: center;
+  padding: 24px;
+  animation: sg-fade-in 200ms ease;
+}
+
+.sent-overlay .checkmark {
+  font-size: 5rem;
+  margin-bottom: 16px;
+}
+
+.sent-overlay h2 {
+  font-size: 2rem;
+  font-weight: 900;
+  letter-spacing: 0.1em;
+  margin-bottom: 8px;
+}
+
+.sent-overlay p {
+  font-size: 1rem;
+  opacity: 0.9;
+  max-width: 300px;
+  margin-bottom: 24px;
+}
+
+.sent-status-steps {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 24px;
+  text-align: left;
+}
+
+.sent-step {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 0.9375rem;
+  opacity: 0.5;
+  transition: opacity 0.5s ease;
+}
+
+.sent-step.done {
+  opacity: 1;
+}
+
+.sent-step .step-icon {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: rgba(255,255,255,0.2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.75rem;
+}
+
+.sent-step.done .step-icon {
+  background: rgba(255,255,255,0.9);
+  color: var(--red);
+}

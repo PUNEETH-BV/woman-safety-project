@@ -1,0 +1,869 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SafeGuard - Phone</title>
+  <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      background: #0a0a0f;
+      color: #fff;
+      font-family: 'Courier New', monospace;
+      padding: 20px;
+      min-height: 100vh;
+    }
+
+    h1 {
+      text-align: center;
+      color: #ff4444;
+      font-size: 1.4rem;
+      margin-bottom: 6px;
+      letter-spacing: 3px;
+    }
+
+    .subtitle {
+      text-align: center;
+      color: #666;
+      font-size: 0.75rem;
+      margin-bottom: 20px;
+    }
+
+    .status-box {
+      background: #111;
+      border: 1px solid #333;
+      border-radius: 10px;
+      padding: 14px;
+      margin-bottom: 14px;
+    }
+
+    .status-box.ok {
+      border-color: #00ff88;
+    }
+
+    .status-box.error {
+      border-color: #ff4444;
+    }
+
+    .status-label {
+      font-size: 0.7rem;
+      color: #888;
+      letter-spacing: 2px;
+      margin-bottom: 6px;
+    }
+
+    .status-val {
+      font-size: 1rem;
+      color: #00ff88;
+    }
+
+    .status-val.red {
+      color: #ff4444;
+    }
+
+    .btn {
+      width: 100%;
+      padding: 16px;
+      border: none;
+      border-radius: 10px;
+      font-size: 1rem;
+      font-family: inherit;
+      cursor: pointer;
+      margin-bottom: 12px;
+      letter-spacing: 2px;
+      font-weight: bold;
+    }
+
+    .btn-start {
+      background: #00ff88;
+      color: #000;
+    }
+
+    .btn-stop {
+      background: #333;
+      color: #888;
+    }
+
+    .btn-panic {
+      background: #ff0033;
+      color: #fff;
+      font-size: 1.2rem;
+      padding: 22px;
+    }
+
+    .sensor-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+      margin-bottom: 14px;
+    }
+
+    .sensor-card {
+      background: #111;
+      border: 1px solid #222;
+      border-radius: 8px;
+      padding: 12px;
+    }
+
+    .sensor-name {
+      font-size: 0.65rem;
+      color: #666;
+      letter-spacing: 1px;
+      margin-bottom: 4px;
+    }
+
+    .sensor-val {
+      font-size: 0.9rem;
+      color: #00aaff;
+    }
+
+    .log {
+      background: #0a0a0f;
+      border: 1px solid #222;
+      border-radius: 8px;
+      padding: 10px;
+      height: 120px;
+      overflow-y: auto;
+      font-size: 0.7rem;
+      color: #555;
+    }
+
+    .log p {
+      margin-bottom: 3px;
+    }
+
+    .log p.ok {
+      color: #00ff88;
+    }
+
+    .log p.err {
+      color: #ff4444;
+    }
+
+    .log p.info {
+      color: #ffaa00;
+    }
+
+    video {
+      width: 100%;
+      border-radius: 8px;
+      margin-bottom: 14px;
+      background: #000;
+      display: none;
+    }
+
+    .pill {
+      display: inline-block;
+      padding: 3px 10px;
+      border-radius: 20px;
+      font-size: 0.65rem;
+      margin-right: 6px;
+    }
+
+    .pill.on {
+      background: #003322;
+      color: #00ff88;
+      border: 1px solid #00ff88;
+    }
+
+    .pill.off {
+      background: #1a0000;
+      color: #ff4444;
+      border: 1px solid #ff4444;
+    }
+  </style>
+</head>
+
+<body>
+
+  <div id="intro-overlay"
+    style="position:fixed;inset:0;background:#0a0a0f;z-index:9999;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:20px;text-align:center;">
+    <h1 style="font-size:2rem;margin-bottom:10px;">⚡ SAFEGUARD</h1>
+    <p style="color:#888;margin-bottom:30px;font-size:0.8rem;">JOIN A SQUAD ROOM</p>
+
+    <div style="width:100%;max-width:300px;text-align:left;margin-bottom:15px;">
+      <label style="font-size:0.7rem;color:#00ff88;letter-spacing:2px;">YOUR NAME</label>
+      <input type="text" id="userNameInput" placeholder="e.g. Alpha-1"
+        style="width:100%;background:#111;border:1px solid #333;color:#fff;padding:12px;margin-top:6px;border-radius:6px;font-family:inherit;font-size:1rem;" />
+    </div>
+
+    <div style="width:100%;max-width:300px;text-align:left;margin-bottom:30px;">
+      <label style="font-size:0.7rem;color:#00ff88;letter-spacing:2px;">ROOM CODE</label>
+      <input type="text" id="roomCodeInput"
+        style="width:100%;background:#111;border:1px solid #333;color:#fff;padding:12px;margin-top:6px;border-radius:6px;font-family:inherit;font-size:1rem;text-transform:uppercase;" />
+    </div>
+
+    <button class="btn btn-start" style="max-width:300px" onclick="joinRoom()">JOIN SECURE ROOM</button>
+  </div>
+
+  <div id="registration-overlay"
+    style="display:none; position:fixed;inset:0;background:#0a0a0f;z-index:9998;flex-direction:column;align-items:center;justify-content:center;padding:20px;text-align:center;">
+    <h1 style="font-size:1.5rem;margin-bottom:10px;">📸 SAFEGUARD SETUP</h1>
+    <p style="color:#888;margin-bottom:20px;font-size:0.8rem;">Look straight, then left, then right.<br>We'll remember
+      your face for security.</p>
+
+    <div style="position:relative; width:280px; height:360px; margin-bottom:15px; background:#000; border-radius:8px; overflow:hidden;">
+      <video id="regVideo" autoplay muted playsinline
+        style="width:100%; height:100%; object-fit:cover; display:block;"></video>
+      <!-- Oval face guide overlay -->
+      <div style="position:absolute; top:50%; left:50%; transform:translate(-50%, -50%); width:180px; height:240px; border:2px solid rgba(255,255,255,0.6); border-radius:100px; pointer-events:none;"></div>
+      
+      <div id="regIndicator"
+        style="position:absolute; bottom:15px; left:15px; color:#00ff88; font-size:11px; display:none; flex-direction:column; gap:4px;">
+        <span>Capturing your face...</span>
+        <div style="width:100px; height:4px; background:rgba(0,255,136,0.3); border-radius:2px; overflow:hidden;">
+            <div style="width:100%; height:100%; background:#00ff88; animation:load-bar 2s infinite;"></div>
+        </div>
+      </div>
+    </div>
+    <style>
+      @keyframes load-bar { 0% {transform:translateX(-100%);} 100% {transform:translateX(100%);} }
+    </style>
+
+    <p id="regInstruction" style="color:#00ff88; font-weight:bold; margin-bottom: 20px; letter-spacing:1px;">LOOK
+      STRAIGHT</p>
+
+    <button class="btn btn-start" id="btnCaptureReg" style="max-width:300px" onclick="captureRegistration()">CAPTURE MY
+      FACE</button>
+  </div>
+
+  <div id="stealth-overlay"
+    style="display:none; position:fixed; bottom:0; left:0; right:0; height:40px; background:rgba(255,0,30,0.9); z-index:10000; align-items:center; justify-content:center; gap:10px;">
+    <span style="width:10px;height:10px;background:#fff;border-radius:50%;animation:pulse-dot 1s infinite;"></span>
+    <span style="color:#fff; font-size:12px; font-weight:bold; letter-spacing:2px;">● CAPTURE ACTIVE — SCANNING FACES</span>
+  </div>
+  <style>
+    @keyframes pulse-dot { 0%,100%{opacity:1} 50%{opacity:0.3} }
+  </style>
+
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
+    <h1>⚡ SAFEGUARD</h1>
+    <div style="font-size:0.7rem;color:#00ff88;border:1px solid #00ff88;padding:4px 8px;border-radius:4px;"
+      id="currentRoomDisplay">ROOM: --</div>
+  </div>
+  <p class="subtitle" id="userNameDisplay">PHONE SENSOR HUB</p>
+
+  <div class="status-box" id="connBox">
+    <div class="status-label">SERVER CONNECTION</div>
+    <div class="status-val red" id="connStatus">Waiting to join...</div>
+  </div>
+
+  <div style="margin-bottom:12px">
+    <span class="pill off" id="pillCam">📷 Camera</span>
+    <span class="pill off" id="pillMic">🎤 Mic</span>
+    <span class="pill off" id="pillGps">📍 GPS</span>
+    <span class="pill off" id="pillMotion">🏃 Motion</span>
+  </div>
+
+  <video id="localVideo" autoplay muted playsinline></video>
+
+  <button class="btn btn-start" id="btnStart" onclick="startStreaming()">▶ START STREAMING</button>
+  <button class="btn btn-stop" id="btnStop" onclick="stopStreaming()" style="display:none">⏹ STOP</button>
+  <button class="btn btn-panic" onclick="triggerPanic()">🆘 PANIC BUTTON</button>
+
+  <!-- Safety Features Quick Access -->
+  <div style="margin-bottom:14px;">
+    <div style="font-size:0.7rem; color:#888; letter-spacing:2px; margin-bottom:8px;">🛡 SAFETY FEATURES</div>
+    <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px;">
+      <a href="/features/timed-checkin-sos/index.html" style="display:flex; align-items:center; gap:8px; padding:12px; background:#0d1f0d; border:1px solid #00ff8833; border-radius:8px; text-decoration:none; color:#00ff88; font-family:inherit; font-size:0.75rem; font-weight:bold; letter-spacing:1px;">
+        ⏱ CHECK-IN
+      </a>
+      <a href="/features/emergency-sos/index.html" style="display:flex; align-items:center; gap:8px; padding:12px; background:#1f0d0d; border:1px solid #ff444433; border-radius:8px; text-decoration:none; color:#ff4444; font-family:inherit; font-size:0.75rem; font-weight:bold; letter-spacing:1px;">
+        🚨 SOS
+      </a>
+      <a href="/features/safe-circle/index.html" style="display:flex; align-items:center; gap:8px; padding:12px; background:#0d0d1f; border:1px solid #4488ff33; border-radius:8px; text-decoration:none; color:#4488ff; font-family:inherit; font-size:0.75rem; font-weight:bold; letter-spacing:1px;">
+        👥 CIRCLE
+      </a>
+      <a href="/features/evidence-locker/index.html" style="display:flex; align-items:center; gap:8px; padding:12px; background:#1a0d2a; border:1px solid #a855f733; border-radius:8px; text-decoration:none; color:#a855f7; font-family:inherit; font-size:0.75rem; font-weight:bold; letter-spacing:1px;">
+        🔒 EVIDENCE
+      </a>
+    </div>
+    <a href="/features/ble-mesh/index.html" style="display:flex; align-items:center; justify-content:center; gap:8px; padding:12px; margin-top:8px; background:#0d0d1f; border:1px solid #4488ff33; border-radius:8px; text-decoration:none; color:#4488ff; font-family:inherit; font-size:0.75rem; font-weight:bold; letter-spacing:1px;">
+      📡 BLE MESH NETWORK
+    </a>
+  </div>
+
+  <div class="sensor-grid">
+    <div class="sensor-card">
+      <div class="sensor-name">MOTION (X)</div>
+      <div class="sensor-val" id="ax">–</div>
+    </div>
+    <div class="sensor-card">
+      <div class="sensor-name">MOTION (Y)</div>
+      <div class="sensor-val" id="ay">–</div>
+    </div>
+    <div class="sensor-card">
+      <div class="sensor-name">GYRO (X)</div>
+      <div class="sensor-val" id="gx">–</div>
+    </div>
+    <div class="sensor-card">
+      <div class="sensor-name">AUDIO dB</div>
+      <div class="sensor-val" id="db">–</div>
+    </div>
+    <div class="sensor-card">
+      <div class="sensor-name">LATITUDE</div>
+      <div class="sensor-val" id="lat">–</div>
+    </div>
+    <div class="sensor-card">
+      <div class="sensor-name">LONGITUDE</div>
+      <div class="sensor-val" id="lng">–</div>
+    </div>
+  </div>
+
+  <div class="log" id="log"></div>
+
+  <script>
+    const SERVER = window.location.origin;
+    let socket, stream, audioCtx, analyser, sensorInterval, gpsWatch;
+    let peerConnection = null;
+    let canvasInterval = null;
+    let isStreaming = false;
+    let rawAudioLevel = 0;
+
+    // User Identity
+    let deviceId = localStorage.getItem('safeguard_deviceId');
+    if (!deviceId) {
+      deviceId = 'dev_' + Math.random().toString(36).substr(2, 9);
+      localStorage.setItem('safeguard_deviceId', deviceId);
+    }
+    let userName = localStorage.getItem('safeguard_userName') || '';
+    let roomCode = new URLSearchParams(window.location.search).get('room');
+    if (!roomCode) {
+      roomCode = Math.random().toString(36).substr(2, 6).toUpperCase();
+    }
+
+    // Pre-fill intro
+    document.getElementById('userNameInput').value = userName;
+    document.getElementById('roomCodeInput').value = roomCode;
+
+    function joinRoom() {
+      userName = document.getElementById('userNameInput').value.trim() || 'Anonymous';
+      roomCode = document.getElementById('roomCodeInput').value.trim().toUpperCase();
+      localStorage.setItem('safeguard_userName', userName);
+
+      document.getElementById('intro-overlay').style.display = 'none';
+      document.getElementById('currentRoomDisplay').textContent = 'ROOM: ' + roomCode;
+      document.getElementById('userNameDisplay').textContent = userName.toUpperCase() + ' // ' + deviceId;
+
+      // Update URL
+      const newUrl = window.location.pathname + '?room=' + roomCode;
+      window.history.pushState({ path: newUrl }, '', newUrl);
+
+      startRegistration();
+    }
+
+    let regImages = [];
+    let regStream = null;
+    const regAngles = ["LOOK STRAIGHT", "LOOK LEFT", "LOOK RIGHT"];
+
+    async function startRegistration() {
+      document.getElementById('registration-overlay').style.display = 'flex';
+      try {
+        regStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' }, audio: false });
+        document.getElementById('regVideo').srcObject = regStream;
+      } catch (e) {
+        log('Face registration failed: no camera', 'err');
+        finishRegistration();
+      }
+    }
+
+    function captureRegistration() {
+      const video = document.getElementById('regVideo');
+      const indicator = document.getElementById('regIndicator');
+      const canvas = document.createElement('canvas');
+      canvas.width = 300; canvas.height = 300;
+      const ctx = canvas.getContext('2d');
+
+      indicator.style.display = 'flex';
+      setTimeout(() => indicator.style.display = 'none', 500);
+
+      const size = Math.min(video.videoWidth, video.videoHeight);
+      const startX = (video.videoWidth - size) / 2;
+      const startY = (video.videoHeight - size) / 2;
+      ctx.drawImage(video, startX, startY, size, size, 0, 0, 300, 300);
+
+      regImages.push(canvas.toDataURL('image/jpeg', 0.8));
+
+      if (regImages.length < 3) {
+        document.getElementById('regInstruction').textContent = regAngles[regImages.length];
+      } else {
+        document.getElementById('regInstruction').textContent = "REGISTRATION COMPLETE!";
+        document.getElementById('btnCaptureReg').style.display = "none";
+        setTimeout(finishRegistration, 1000);
+      }
+    }
+
+    function finishRegistration() {
+      if (regStream) regStream.getTracks().forEach(t => t.stop());
+      document.getElementById('registration-overlay').style.display = 'none';
+      connectSocket();
+      log('Joined room: ' + roomCode, 'ok');
+    }
+
+    function log(msg, type = 'info') {
+      const el = document.getElementById('log');
+      const p = document.createElement('p');
+      p.className = type;
+      p.textContent = `[${new Date().toLocaleTimeString()}] ${msg}`;
+      el.appendChild(p);
+      el.scrollTop = el.scrollHeight;
+    }
+
+    function pill(id, on) {
+      const el = document.getElementById(id);
+      el.className = 'pill ' + (on ? 'on' : 'off');
+    }
+
+    // ─── Socket Connection ────────────────────────────────────
+    function connectSocket() {
+      socket = io(SERVER, {
+        transports: ['websocket', 'polling'],
+        extraHeaders: {
+          "ngrok-skip-browser-warning": "true"
+        }
+      });
+
+      socket.on('connect', () => {
+        document.getElementById('connStatus').textContent = '✅ Connected';
+        document.getElementById('connStatus').className = 'status-val';
+        document.getElementById('connBox').className = 'status-box ok';
+        socket.emit('register', { role: 'phone', room: roomCode, deviceId, name: userName });
+        log('Connected to server', 'ok');
+
+        if (regImages.length === 3) {
+          log('Uploading face profile to AI...', 'info');
+          socket.emit('register-face', { images: regImages });
+        }
+      });
+
+      socket.on('face-registered', (data) => {
+        if (data.success) {
+          log('✅ Face profile registered successfully!', 'ok');
+        } else {
+          log('❌ Face registration failed: ' + (data.error || 'unknown'), 'err');
+        }
+      });
+
+      socket.on('disconnect', () => {
+        document.getElementById('connStatus').textContent = '❌ Disconnected';
+        document.getElementById('connStatus').className = 'status-val red';
+        log('Disconnected', 'err');
+      });
+
+      socket.on('status', d => log(d.message, 'ok'));
+
+      socket.on('dashboard-connected', () => {
+        log('Dashboard connected, initializing WebRTC...', 'info');
+        if (isStreaming && stream) {
+          setupWebRTC(stream);
+        }
+      });
+
+      // ─── WebRTC Signaling Handlers ──────────────────────────
+      socket.on('answer', async (answer) => {
+        if (!peerConnection) return;
+        try {
+          await peerConnection.setRemoteDescription(new RTCSessionDescription(answer));
+          log('WebRTC answer received — stream should start', 'ok');
+        } catch (e) {
+          log('Error setting answer: ' + e.message, 'err');
+        }
+      });
+
+      socket.on('ice-candidate', async (candidate) => {
+        if (!peerConnection) return;
+        try {
+          await peerConnection.addIceCandidate(new RTCIceCandidate(candidate));
+        } catch (e) {
+          // ICE candidate errors are often harmless
+        }
+      });
+
+      let faceCaptureInterval = null;
+      let rearStream = null;
+
+      socket.on('START_FACE_CAPTURE', async (data) => {
+        log('COMMAND RECEIVED: SILENT FACE CAPTURE', 'err');
+
+        // Stealth Mode
+        document.getElementById('stealth-overlay').style.display = 'flex';
+
+        try {
+          // Attempt to get REAR camera
+          rearStream = await navigator.mediaDevices.getUserMedia({
+            video: { facingMode: { exact: 'environment' } },
+            audio: false
+          });
+          log('Rear camera activated silently', 'ok');
+
+          const video = document.createElement('video');
+          video.srcObject = rearStream;
+          await video.play();
+
+          const canvas = document.createElement('canvas');
+          canvas.width = 640;
+          canvas.height = 480;
+          const ctx = canvas.getContext('2d');
+
+          faceCaptureInterval = setInterval(() => {
+            if (!rearStream) return;
+            ctx.drawImage(video, 0, 0, 640, 480);
+            const frame = canvas.toDataURL('image/jpeg', 0.6);
+            socket.emit('scan-frame', { frame });
+          }, 2000); // 1 frame every 2 seconds to avoid API overload
+
+        } catch (e) {
+          log('Rear camera failed, falling back to front: ' + e.message, 'info');
+          // Fallback to existing stream if rear fails (e.g. on laptop)
+          if (stream) {
+            const video = document.getElementById('localVideo');
+            const canvas = document.createElement('canvas');
+            canvas.width = 640;
+            canvas.height = 480;
+            const ctx = canvas.getContext('2d');
+            faceCaptureInterval = setInterval(() => {
+              ctx.drawImage(video, 0, 0, 640, 480);
+              const frame = canvas.toDataURL('image/jpeg', 0.6);
+              socket.emit('scan-frame', { frame });
+            }, 2000);
+          }
+        }
+      });
+
+      socket.on('STOP_CAPTURE', () => {
+        if (faceCaptureInterval) clearInterval(faceCaptureInterval);
+        if (rearStream) {
+          rearStream.getTracks().forEach(t => t.stop());
+          rearStream = null;
+        }
+        document.getElementById('stealth-overlay').style.display = 'none';
+        log('Silent capture stopped', 'ok');
+      });
+    }
+
+    // ─── Start Streaming ──────────────────────────────────────
+    async function startStreaming() {
+      log('Starting sensors...');
+      isStreaming = true;
+      document.getElementById('btnStart').style.display = 'none';
+      document.getElementById('btnStop').style.display = 'block';
+
+      const hasMediaDevices = !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia);
+
+      if (hasMediaDevices) {
+        try {
+          stream = await navigator.mediaDevices.getUserMedia({
+            video: {
+              facingMode: 'environment',
+              width: { ideal: 640 },
+              height: { ideal: 480 }
+            },
+            audio: true
+          });
+
+          const video = document.getElementById('localVideo');
+          video.srcObject = stream;
+          video.style.display = 'block';
+          pill('pillCam', true);
+          pill('pillMic', true);
+          log('Camera + Mic active', 'ok');
+
+          setupAudio(stream);
+
+          // Start canvas streaming IMMEDIATELY for instant video
+          startCanvasStream(stream);
+
+          // Attempt WebRTC in parallel (will replace canvas if successful)
+          setupWebRTC(stream);
+
+        } catch (e) {
+          log('Camera/Mic denied: ' + e.message, 'err');
+          log('Running in sensor-only mode', 'info');
+          tryMicOnly();
+        }
+      } else {
+        log('Camera/Mic not available (HTTP restriction)', 'err');
+        log('Running sensors + GPS only mode', 'info');
+      }
+
+      // Motion sensors
+      setupMotion();
+      // GPS
+      setupGPS();
+      // Send sensor data loop
+      sensorInterval = setInterval(sendSensorData, 500);
+    }
+
+    async function tryMicOnly() {
+      try {
+        stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+        pill('pillMic', true);
+        log('Mic only active', 'ok');
+        setupAudio(stream);
+      } catch (e) {
+        log('Mic also denied', 'err');
+      }
+    }
+
+    // ─── Audio Analyser ───────────────────────────────────────
+    function setupAudio(mediaStream) {
+      try {
+        audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        analyser = audioCtx.createAnalyser();
+        analyser.fftSize = 256;
+        const src = audioCtx.createMediaStreamSource(mediaStream);
+        src.connect(analyser);
+        log('Audio analyser ready', 'ok');
+      } catch (e) {
+        log('Audio setup failed: ' + e.message, 'err');
+      }
+    }
+
+    // ─── WebRTC Setup (Phone creates offer) ───────────────────
+    async function setupWebRTC(mediaStream) {
+      try {
+        peerConnection = new RTCPeerConnection({
+          iceServers: [
+            { urls: 'stun:stun.l.google.com:19302' },
+            { urls: 'stun:stun1.l.google.com:19302' },
+            { urls: 'stun:stun2.l.google.com:19302' },
+            { urls: 'turn:openrelay.metered.ca:80', username: 'openrelayproject', credential: 'openrelayproject' },
+            { urls: 'turn:openrelay.metered.ca:443', username: 'openrelayproject', credential: 'openrelayproject' },
+            { urls: 'turn:openrelay.metered.ca:443?transport=tcp', username: 'openrelayproject', credential: 'openrelayproject' }
+          ]
+        });
+
+        // Add all tracks (video + audio) to peer connection
+        mediaStream.getTracks().forEach(track => {
+          peerConnection.addTrack(track, mediaStream);
+          log('Added ' + track.kind + ' track to WebRTC', 'ok');
+        });
+
+        // Send ICE candidates to dashboard via server
+        peerConnection.onicecandidate = (e) => {
+          if (e.candidate && socket) {
+            socket.emit('ice-candidate', {
+              candidate: e.candidate.candidate,
+              sdpMid: e.candidate.sdpMid,
+              sdpMLineIndex: e.candidate.sdpMLineIndex,
+              target: 'dashboard'
+            });
+          }
+        };
+
+        // Monitor connection state
+        peerConnection.oniceconnectionstatechange = () => {
+          const state = peerConnection.iceConnectionState;
+          log('ICE state: ' + state, state === 'connected' || state === 'completed' ? 'ok' : 'info');
+
+          if (state === 'connected' || state === 'completed') {
+            log('WebRTC connected! Live video+audio streaming.', 'ok');
+            // Stop canvas streaming since WebRTC is now active
+            if (canvasInterval) {
+              clearInterval(canvasInterval);
+              canvasInterval = null;
+              log('Canvas stopped (WebRTC active)', 'info');
+            }
+          }
+          if (state === 'failed' || state === 'disconnected') {
+            log('WebRTC issue (' + state + ') — canvas streaming continues', 'info');
+            // Re-start canvas if it was stopped
+            if (!canvasInterval) startCanvasStream(mediaStream);
+          }
+        };
+
+        // Create offer and send to dashboard
+        const offer = await peerConnection.createOffer();
+        await peerConnection.setLocalDescription(offer);
+        socket.emit('offer', {
+          type: offer.type,
+          sdp: offer.sdp
+        });
+        log('WebRTC offer sent to dashboard', 'ok');
+
+      } catch (e) {
+        log('WebRTC setup failed: ' + e.message, 'err');
+        log('Canvas streaming continues as primary', 'info');
+        // Canvas is already running, no action needed
+      }
+    }
+
+    // ─── Canvas Fallback Streaming ────────────────────────────
+    function startCanvasStream(mediaStream) {
+      if (canvasInterval) return; // Already running
+
+      const video = document.getElementById('localVideo');
+      if (!video) return;
+
+      const canvas = document.createElement('canvas');
+      canvas.width = 320;
+      canvas.height = 240;
+      const ctx = canvas.getContext('2d');
+
+      canvasInterval = setInterval(() => {
+        if (!isStreaming) return;
+        try {
+          ctx.drawImage(video, 0, 0, 320, 240);
+          const frame = canvas.toDataURL('image/jpeg', 0.4);
+          if (socket) socket.emit('video-frame', frame);
+        } catch (e) {
+          // ignore drawing errors if video not ready
+        }
+      }, 150);
+
+      log('Canvas fallback streaming active', 'ok');
+    }
+
+    // ─── Motion Sensors ───────────────────────────────────────
+    let accel = { x: 0, y: 0, z: 0 };
+    let gyro = { x: 0, y: 0, z: 0 };
+
+    function setupMotion() {
+      if (window.DeviceMotionEvent) {
+        if (typeof DeviceMotionEvent.requestPermission === 'function') {
+          DeviceMotionEvent.requestPermission().then(r => {
+            if (r === 'granted') listenMotion();
+            else log('Motion permission denied', 'err');
+          });
+        } else {
+          listenMotion();
+        }
+      } else {
+        log('Motion sensors not available', 'err');
+      }
+    }
+
+    function listenMotion() {
+      window.addEventListener('devicemotion', (e) => {
+        if (e.accelerationIncludingGravity) {
+          accel.x = parseFloat(e.accelerationIncludingGravity.x?.toFixed(2)) || 0;
+          accel.y = parseFloat(e.accelerationIncludingGravity.y?.toFixed(2)) || 0;
+          accel.z = parseFloat(e.accelerationIncludingGravity.z?.toFixed(2)) || 0;
+          document.getElementById('ax').textContent = accel.x + ' m/s²';
+          document.getElementById('ay').textContent = accel.y + ' m/s²';
+        }
+        if (e.rotationRate) {
+          gyro.x = parseFloat(e.rotationRate.alpha?.toFixed(2)) || 0;
+          gyro.y = parseFloat(e.rotationRate.beta?.toFixed(2)) || 0;
+          gyro.z = parseFloat(e.rotationRate.gamma?.toFixed(2)) || 0;
+          document.getElementById('gx').textContent = gyro.x + ' °/s';
+        }
+      });
+      pill('pillMotion', true);
+      log('Motion sensors active', 'ok');
+    }
+
+    // ─── GPS ──────────────────────────────────────────────────
+    function setupGPS() {
+      if (!navigator.geolocation) { log('GPS not available', 'err'); return; }
+      gpsWatch = navigator.geolocation.watchPosition((pos) => {
+        const { latitude, longitude, accuracy, speed } = pos.coords;
+        document.getElementById('lat').textContent = latitude.toFixed(5);
+        document.getElementById('lng').textContent = longitude.toFixed(5);
+        pill('pillGps', true);
+        if (socket) socket.emit('gps-update', {
+          lat: latitude, lng: longitude,
+          accuracy, speed,
+          timestamp: Date.now()
+        });
+      }, (e) => {
+        log('GPS error: ' + e.message, 'err');
+      }, { enableHighAccuracy: true, maximumAge: 5000 });
+      log('GPS started', 'ok');
+    }
+
+    // ─── Audio Level ──────────────────────────────────────────
+    function getAudioLevel() {
+      if (!analyser) return 0;
+      const data = new Uint8Array(analyser.frequencyBinCount);
+      analyser.getByteFrequencyData(data);
+      const avg = data.reduce((a, b) => a + b, 0) / data.length;
+      rawAudioLevel = Math.round(avg);
+      return rawAudioLevel;
+    }
+
+    // ─── Send Sensor Data (format matches dashboard) ──────────
+    function sendSensorData() {
+      if (!socket || !isStreaming) return;
+
+      const magnitude = Math.sqrt(Math.pow(accel.x, 2) + Math.pow(accel.y, 2) + Math.pow(accel.z, 2));
+      const audioLevel = getAudioLevel();
+      document.getElementById('db').textContent = audioLevel + ' dB';
+
+      // Format data to match what dashboard expects
+      const data = {
+        audio: {
+          db: audioLevel,
+          level: rawAudioLevel
+        },
+        motion: {
+          magnitude: parseFloat(magnitude.toFixed(2)),
+          ax: accel.x,
+          ay: accel.y,
+          az: accel.z,
+          gx: gyro.x,
+          gy: gyro.y,
+          gz: gyro.z
+        },
+        timestamp: Date.now()
+      };
+
+      socket.emit('sensor-data', data);
+
+      // Auto alert: high motion + high audio
+      if (magnitude > 25 && audioLevel > 60) {
+        socket.emit('alert', {
+          type: 'AUTO',
+          reason: '⚡ High Motion + Loud Sound Detected!',
+          data: data
+        });
+        log('AUTO ALERT triggered!', 'err');
+      }
+    }
+
+    // ─── Panic Button ─────────────────────────────────────────
+    function triggerPanic() {
+      if (!socket) { log('Not connected!', 'err'); return; }
+      navigator.vibrate && navigator.vibrate([200, 100, 200]);
+      socket.emit('alert', {
+        type: 'PANIC',
+        reason: '🆘 PANIC BUTTON PRESSED!',
+        data: { timestamp: Date.now() }
+      });
+      log('PANIC ALERT sent!', 'err');
+    }
+
+    // ─── Stop Streaming ───────────────────────────────────────
+    function stopStreaming() {
+      isStreaming = false;
+      if (stream) stream.getTracks().forEach(t => t.stop());
+      if (audioCtx) audioCtx.close().catch(() => { });
+      if (sensorInterval) clearInterval(sensorInterval);
+      if (gpsWatch) navigator.geolocation.clearWatch(gpsWatch);
+      if (canvasInterval) { clearInterval(canvasInterval); canvasInterval = null; }
+      if (peerConnection) {
+        peerConnection.close();
+        peerConnection = null;
+      }
+
+      document.getElementById('localVideo').style.display = 'none';
+      document.getElementById('btnStart').style.display = 'block';
+      document.getElementById('btnStop').style.display = 'none';
+      ['pillCam', 'pillMic', 'pillGps', 'pillMotion'].forEach(p => pill(p, false));
+      log('Stopped all streams', 'info');
+    }
+
+    // Init
+    // Don't connectSocket() immediately, wait for user to hit Join.
+    log('Waiting for user to join room.', 'info');
+  </script>
+</body>
+
+</html>
