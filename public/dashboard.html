@@ -807,6 +807,7 @@
       </div>
     </div>
     <div class="header-right">
+      <button id="audio-toggle" onclick="toggleAudioPlayback()" style="padding:6px 14px;border-radius:20px;font-size:11px;letter-spacing:2px;text-transform:uppercase;background:#1a1a1a;border:1px solid #333;color:var(--dim);cursor:pointer;font-family:inherit;transition:all 0.3s;">🔇 Enable Audio</button>
       <div id="connection-pill">● Waiting for phone</div>
       <div id="clock">--:--:--</div>
     </div>
@@ -1133,38 +1134,20 @@ function selectUser(deviceId) {
   
   renderSidebar();
   
-  // Update Video
-  document.getElementById("remote-video").srcObject = user.stream;
-  if (user.stream) {
-    document.getElementById("remote-video").style.display = "block";
-    document.getElementById("no-feed").style.display = "none";
-    document.getElementById("video-label").textContent = "🔴 " + user.name;
-    document.getElementById("video-label").style.color = user.color;
-    document.getElementById("video-label").style.borderColor = user.color;
-    
-    const vid = document.getElementById("remote-video");
-    vid.muted = false; // try with audio first
-    vid.play().catch(e => {
-      console.warn("Autoplay blocked, trying muted:", e);
-      vid.muted = true;
-      document.getElementById("video-label").innerHTML += ' <span style="background:var(--amber);color:#000;padding:2px 4px;border-radius:2px;cursor:pointer;" onclick="document.getElementById(\\\'remote-video\\\').muted=false; this.style.display=\\\'none\\\';">🔇 Click to Unmute</span>';
-      vid.play().catch(e2 => console.warn("Still blocked:", e2));
-    });
-  } else {
-    document.getElementById("remote-video").style.display = "none";
-    document.getElementById("no-feed").style.display = "flex";
-    document.getElementById("video-label").textContent = "NO FEED";
-  }
-
-  // Hide all canvas feeds, show active one if WebRTC stream is NOT active
+  // Always use Socket.io canvas as primary video (works over any distance)
+  document.getElementById("remote-video").style.display = "none";
   document.querySelectorAll('.canvas-feed-img').forEach(img => img.style.display = 'none');
   const activeCanvas = document.getElementById('canvas-feed-' + deviceId);
-  
-  if (!user.stream || (user.pc && (user.pc.iceConnectionState === "failed" || user.pc.iceConnectionState === "disconnected"))) {
-    if (activeCanvas) activeCanvas.style.display = 'block';
-    document.getElementById("remote-video").style.display = "none";
+  if (activeCanvas) {
+    activeCanvas.style.display = 'block';
     document.getElementById("no-feed").style.display = "none";
-    document.getElementById("video-label").textContent = "🔴 " + user.name + " (Canvas)";
+    document.getElementById("video-label").textContent = "🔴 " + user.name + " · LIVE";
+    document.getElementById("video-label").style.color = user.color;
+    document.getElementById("video-label").style.borderColor = user.color;
+  } else {
+    document.getElementById("no-feed").style.display = "flex";
+    document.getElementById("video-label").textContent = "WAITING FOR FEED...";
+    document.getElementById("video-label").style.color = "var(--dim)";
   }
 
   // Update Map
@@ -1199,16 +1182,12 @@ socket.on("offer", async (data) => {
     });
 
     user.pc.ontrack = (e) => {
-      user.stream = e.streams[0];
-      if (activeUserId === deviceId) selectUser(deviceId);
+      // WebRTC track received but Socket.io canvas is primary
+      console.log("WebRTC track available for", deviceId, "(canvas is primary)");
     };
 
     user.pc.oniceconnectionstatechange = () => {
       console.log("Dashboard ICE state:", user.pc.iceConnectionState);
-      if (user.pc.iceConnectionState === "failed" || user.pc.iceConnectionState === "disconnected") {
-        user.stream = null;
-        if (activeUserId === deviceId) selectUser(deviceId);
-      }
     };
 
     user.pc.onicecandidate = (e) => {
@@ -1253,7 +1232,7 @@ socket.on("ice-candidate", async (data) => {
   }
 });
 
-// ─── Video Canvas Fallback ────────────────────────────────
+// ─── Live Video Stream (Socket.io Primary) ───────────────
 socket.on('video-frame', (data) => {
   const deviceId = data.deviceId;
   const frame = data.frame;
@@ -1271,10 +1250,16 @@ socket.on('video-frame', (data) => {
   }
   img.src = frame;
   
-  if (activeUserId === deviceId && !user.stream) {
+  // Always show for active user
+  if (activeUserId === deviceId) {
     img.style.display = 'block';
     document.getElementById('no-feed').style.display = 'none';
-    document.getElementById("video-label").textContent = "🔴 " + user.name + " (Canvas)";
+    document.getElementById("video-label").textContent = "🔴 " + user.name + " · LIVE";
+    document.getElementById("video-label").style.color = user.color || "var(--red)";
+    // Update connection pill
+    const pill = document.getElementById("connection-pill");
+    pill.textContent = "● " + user.name + " STREAMING";
+    pill.className = "phone-live";
   } else {
     img.style.display = 'none';
   }
@@ -1683,6 +1668,69 @@ function playAlertSound() {
   });
 
   // (Removed duplicate new-capture handler)
+
+// ─── Real-time Audio Playback (Socket.io) ─────────────────
+let audioPlaybackCtx = null;
+let audioNextPlayTime = 0;
+const AUDIO_PLAYBACK_RATE = 8000;
+let audioEnabled = false;
+
+function toggleAudioPlayback() {
+  const btn = document.getElementById('audio-toggle');
+  if (!audioEnabled) {
+    audioPlaybackCtx = new (window.AudioContext || window.webkitAudioContext)();
+    audioNextPlayTime = audioPlaybackCtx.currentTime;
+    audioEnabled = true;
+    btn.textContent = '🔊 Audio ON';
+    btn.style.borderColor = 'var(--green)';
+    btn.style.color = 'var(--green)';
+    btn.style.background = 'rgba(0,255,136,0.1)';
+  } else {
+    if (audioPlaybackCtx) audioPlaybackCtx.close();
+    audioPlaybackCtx = null;
+    audioEnabled = false;
+    btn.textContent = '🔇 Enable Audio';
+    btn.style.borderColor = '#333';
+    btn.style.color = 'var(--dim)';
+    btn.style.background = '#1a1a1a';
+  }
+}
+
+socket.on('audio-data', (data) => {
+  if (!audioEnabled || !audioPlaybackCtx) return;
+  if (data.deviceId !== activeUserId) return;
+  
+  try {
+    const int16 = new Int16Array(data.pcm);
+    const float32 = new Float32Array(int16.length);
+    for (let i = 0; i < int16.length; i++) {
+      float32[i] = int16[i] / 32768.0;
+    }
+    
+    const buffer = audioPlaybackCtx.createBuffer(1, float32.length, AUDIO_PLAYBACK_RATE);
+    buffer.getChannelData(0).set(float32);
+    
+    const source = audioPlaybackCtx.createBufferSource();
+    source.buffer = buffer;
+    const gainNode = audioPlaybackCtx.createGain();
+    gainNode.gain.value = 3.0; // Amplify remote audio
+    source.connect(gainNode);
+    gainNode.connect(audioPlaybackCtx.destination);
+    
+    const now = audioPlaybackCtx.currentTime;
+    if (audioNextPlayTime < now) audioNextPlayTime = now;
+    source.start(audioNextPlayTime);
+    audioNextPlayTime += buffer.duration;
+    
+    // Prevent latency buildup
+    if (audioNextPlayTime - now > 1.5) {
+      audioNextPlayTime = now + 0.05;
+    }
+  } catch(e) {
+    // Ignore individual playback errors
+  }
+});
+
 </script>
 </body>
 </html>

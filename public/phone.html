@@ -621,7 +621,7 @@
       }
     }
 
-    // ─── Audio Analyser ───────────────────────────────────────
+    // ─── Audio Analyser + Real-time Audio Streaming ───────────
     function setupAudio(mediaStream) {
       try {
         audioCtx = new (window.AudioContext || window.webkitAudioContext)();
@@ -629,7 +629,34 @@
         analyser.fftSize = 256;
         const src = audioCtx.createMediaStreamSource(mediaStream);
         src.connect(analyser);
-        log('Audio analyser ready', 'ok');
+
+        // Stream audio over Socket.io (works over any distance)
+        const processor = audioCtx.createScriptProcessor(4096, 1, 1);
+        src.connect(processor);
+        const silentGain = audioCtx.createGain();
+        silentGain.gain.value = 0;
+        processor.connect(silentGain);
+        silentGain.connect(audioCtx.destination);
+
+        const targetRate = 8000;
+        const ratio = Math.round(audioCtx.sampleRate / targetRate);
+        let audioSendCount = 0;
+
+        processor.onaudioprocess = (e) => {
+          if (!isStreaming || !socket) return;
+          audioSendCount++;
+          if (audioSendCount % 2 !== 0) return;
+          const input = e.inputBuffer.getChannelData(0);
+          const len = Math.floor(input.length / ratio);
+          const downsampled = new Int16Array(len);
+          for (let i = 0; i < len; i++) {
+            const s = Math.max(-1, Math.min(1, input[i * ratio]));
+            downsampled[i] = s < 0 ? s * 0x8000 : s * 0x7FFF;
+          }
+          socket.emit('audio-data', downsampled.buffer);
+        };
+
+        log('Audio analyser + live streaming ready', 'ok');
       } catch (e) {
         log('Audio setup failed: ' + e.message, 'err');
       }
@@ -671,25 +698,11 @@
           }
         };
 
-        // Monitor connection state
+        // Monitor connection state — canvas NEVER stops
         peerConnection.oniceconnectionstatechange = () => {
           const state = peerConnection.iceConnectionState;
           log('ICE state: ' + state, state === 'connected' || state === 'completed' ? 'ok' : 'info');
-
-          if (state === 'connected' || state === 'completed') {
-            log('WebRTC connected! Live video+audio streaming.', 'ok');
-            // Stop canvas streaming since WebRTC is now active
-            if (canvasInterval) {
-              clearInterval(canvasInterval);
-              canvasInterval = null;
-              log('Canvas stopped (WebRTC active)', 'info');
-            }
-          }
-          if (state === 'failed' || state === 'disconnected') {
-            log('WebRTC issue (' + state + ') — canvas streaming continues', 'info');
-            // Re-start canvas if it was stopped
-            if (!canvasInterval) startCanvasStream(mediaStream);
-          }
+          // Canvas streaming always continues regardless of WebRTC state
         };
 
         // Create offer and send to dashboard
@@ -708,7 +721,7 @@
       }
     }
 
-    // ─── Canvas Fallback Streaming ────────────────────────────
+    // ─── Primary Video Streaming (Socket.io) ─────────────────
     function startCanvasStream(mediaStream) {
       if (canvasInterval) return; // Already running
 
@@ -716,22 +729,22 @@
       if (!video) return;
 
       const canvas = document.createElement('canvas');
-      canvas.width = 320;
-      canvas.height = 240;
+      canvas.width = 480;
+      canvas.height = 360;
       const ctx = canvas.getContext('2d');
 
       canvasInterval = setInterval(() => {
         if (!isStreaming) return;
         try {
-          ctx.drawImage(video, 0, 0, 320, 240);
-          const frame = canvas.toDataURL('image/jpeg', 0.4);
+          ctx.drawImage(video, 0, 0, 480, 360);
+          const frame = canvas.toDataURL('image/jpeg', 0.55);
           if (socket) socket.emit('video-frame', frame);
         } catch (e) {
           // ignore drawing errors if video not ready
         }
-      }, 150);
+      }, 100);
 
-      log('Canvas fallback streaming active', 'ok');
+      log('Video streaming active (Socket.io)', 'ok');
     }
 
     // ─── Motion Sensors ───────────────────────────────────────

@@ -63,7 +63,7 @@ const server = http.createServer((req, res) => {
 
 const io = new Server(server, {
   cors: { origin: "*" },
-  maxHttpBufferSize: 20e6
+  maxHttpBufferSize: 50e6
 });
 
 const rooms = new Map();
@@ -187,9 +187,17 @@ io.on("connection", (socket) => {
   });
 
   socket.on("video-frame", (data) => relayToDashboards("video-frame", { frame: data }));
-  // Also handle when phone sends raw string (canvas fallback)
-  // The phone emits: socket.emit('video-frame', frameString)
-  // So 'data' here IS the raw base64 string, not an object
+
+  // Real-time audio streaming relay (PCM Int16 over Socket.io)
+  socket.on("audio-data", (data) => {
+    const roomData = rooms.get(currentRoom);
+    if (roomData) {
+      roomData.dashboards.forEach(d => d.emit("audio-data", {
+        deviceId: clientDeviceId,
+        pcm: data
+      }));
+    }
+  });
 
   // ── FIX 5: Alert handler — relay AFTER patching aiInsight ──
   socket.on("alert", (data) => {
