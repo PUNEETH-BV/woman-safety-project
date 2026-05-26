@@ -1669,26 +1669,28 @@ function playAlertSound() {
 
   // (Removed duplicate new-capture handler)
 
-// ─── Real-time Audio Playback (Opus via MediaSource) ──────
+// ─── Real-time Audio Playback (Web Audio API) ────────────
 let audioEnabled = false;
-let audioElement = null;
-let mediaSource = null;
-let sourceBuffer = null;
-let audioQueue = [];
-let mseReady = false;
+let playbackCtx = null;
+let nextPlayAt = 0;
+let audioChunkCount = 0;
 
 function toggleAudioPlayback() {
   const btn = document.getElementById('audio-toggle');
   if (!audioEnabled) {
+    playbackCtx = new (window.AudioContext || window.webkitAudioContext)();
+    nextPlayAt = playbackCtx.currentTime;
     audioEnabled = true;
+    audioChunkCount = 0;
     btn.textContent = '🔊 Audio ON';
     btn.style.borderColor = 'var(--green)';
     btn.style.color = 'var(--green)';
     btn.style.background = 'rgba(0,255,136,0.1)';
-    initMSEAudio();
   } else {
-    cleanupAudio();
+    if (playbackCtx) playbackCtx.close().catch(() => {});
+    playbackCtx = null;
     audioEnabled = false;
+    audioChunkCount = 0;
     btn.textContent = '🔇 Enable Audio';
     btn.style.borderColor = '#333';
     btn.style.color = 'var(--dim)';
@@ -1696,93 +1698,46 @@ function toggleAudioPlayback() {
   }
 }
 
-function cleanupAudio() {
-  mseReady = false;
-  audioQueue = [];
-  if (audioElement) { audioElement.pause(); audioElement.removeAttribute('src'); audioElement.load(); }
-  if (mediaSource && mediaSource.readyState === 'open') {
-    try { mediaSource.endOfStream(); } catch(e) {}
-  }
-  mediaSource = null;
-  sourceBuffer = null;
-  audioElement = null;
-}
-
-function initMSEAudio() {
-  cleanupAudio();
-
-  if (!('MediaSource' in window)) {
-    console.warn('MSE not supported in this browser');
-    return;
-  }
-
-  const mimeType = 'audio/webm;codecs=opus';
-  if (!MediaSource.isTypeSupported(mimeType)) {
-    console.warn('audio/webm;codecs=opus not supported by MSE');
-    return;
-  }
-
-  audioElement = new Audio();
-  mediaSource = new MediaSource();
-  audioElement.src = URL.createObjectURL(mediaSource);
-
-  mediaSource.addEventListener('sourceopen', () => {
-    try {
-      sourceBuffer = mediaSource.addSourceBuffer(mimeType);
-      sourceBuffer.mode = 'sequence';
-      mseReady = true;
-
-      sourceBuffer.addEventListener('updateend', () => {
-        // Process queued chunks
-        if (audioQueue.length > 0 && sourceBuffer && !sourceBuffer.updating) {
-          try { sourceBuffer.appendBuffer(audioQueue.shift()); } catch(e) {}
-        }
-        // Trim old buffer to prevent memory growth
-        try {
-          if (sourceBuffer.buffered.length > 0 && audioElement.currentTime > 15) {
-            sourceBuffer.remove(0, audioElement.currentTime - 10);
-          }
-        } catch(e) {}
-      });
-
-      console.log('MSE audio ready (Opus)');
-    } catch(e) {
-      console.error('MSE SourceBuffer error:', e);
-      mseReady = false;
-    }
-  });
-
-  audioElement.play().catch(e => {
-    console.warn('Audio autoplay blocked — user must click Enable Audio again:', e);
-  });
-}
-
-socket.on('audio-chunk', (data) => {
-  if (!audioEnabled || !mseReady || !sourceBuffer) return;
+socket.on('audio-chunk', async (data) => {
+  if (!audioEnabled || !playbackCtx) return;
   if (data.deviceId !== activeUserId) return;
+  if (!data.chunk || typeof data.chunk !== 'string') return;
 
-  const chunk = new Uint8Array(data.pcm);
-  if (chunk.length === 0) return;
+  try {
+    // Decode base64 data URL to ArrayBuffer
+    const base64 = data.chunk.split(',')[1];
+    if (!base64) return;
+    const raw = atob(base64);
+    const buffer = new ArrayBuffer(raw.length);
+    const view = new Uint8Array(buffer);
+    for (let i = 0; i < raw.length; i++) view[i] = raw.charCodeAt(i);
 
-  if (!sourceBuffer.updating) {
-    try { sourceBuffer.appendBuffer(chunk); } catch(e) {
-      // On quota error, trim buffer
-      if (e.name === 'QuotaExceededError' && sourceBuffer.buffered.length > 0) {
-        try { sourceBuffer.remove(0, sourceBuffer.buffered.end(sourceBuffer.buffered.length - 1) - 5); } catch(e2) {}
-      }
+    // Decode audio (each chunk is a complete, self-contained audio file)
+    const audioBuffer = await playbackCtx.decodeAudioData(buffer);
+
+    // Schedule seamless gapless playback
+    const source = playbackCtx.createBufferSource();
+    source.buffer = audioBuffer;
+
+    const gainNode = playbackCtx.createGain();
+    gainNode.gain.value = 2.5;
+    source.connect(gainNode);
+    gainNode.connect(playbackCtx.destination);
+
+    const now = playbackCtx.currentTime;
+    if (nextPlayAt < now) nextPlayAt = now;
+    source.start(nextPlayAt);
+    nextPlayAt += audioBuffer.duration;
+
+    // Prevent latency buildup — skip ahead if too far behind
+    if (nextPlayAt - now > 2) {
+      nextPlayAt = now + 0.1;
     }
-  } else {
-    audioQueue.push(chunk);
-    // Prevent queue from growing too large (drop oldest)
-    if (audioQueue.length > 20) audioQueue.shift();
-  }
 
-  // Auto-seek to live edge to prevent growing latency
-  if (audioElement && sourceBuffer.buffered.length > 0) {
-    const buffEnd = sourceBuffer.buffered.end(sourceBuffer.buffered.length - 1);
-    if (buffEnd - audioElement.currentTime > 2) {
-      audioElement.currentTime = buffEnd - 0.3;
-    }
+    audioChunkCount++;
+  } catch(e) {
+    // Skip chunks that can't be decoded (rare)
+    console.warn('Audio decode skip:', e.message);
   }
 });
 

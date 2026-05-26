@@ -188,13 +188,13 @@ io.on("connection", (socket) => {
 
   socket.on("video-frame", (data) => relayToDashboards("video-frame", { frame: data }));
 
-  // Real-time audio streaming relay (Opus/WebM chunks over Socket.io)
+  // Real-time audio streaming relay (Opus base64 chunks over Socket.io)
   socket.on("audio-chunk", (data) => {
     const roomData = rooms.get(currentRoom);
     if (roomData) {
       roomData.dashboards.forEach(d => d.emit("audio-chunk", {
         deviceId: clientDeviceId,
-        pcm: data
+        chunk: data
       }));
     }
   });

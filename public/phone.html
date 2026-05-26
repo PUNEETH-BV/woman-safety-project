@@ -632,28 +632,57 @@
         src.connect(analyser);
 
         // Stream audio using MediaRecorder with Opus codec
-        // (same codec used in phone calls and video calls)
         const audioTracks = mediaStream.getAudioTracks();
         if (audioTracks.length > 0 && typeof MediaRecorder !== 'undefined') {
           const audioOnly = new MediaStream(audioTracks);
           const mimeType = MediaRecorder.isTypeSupported('audio/webm;codecs=opus')
             ? 'audio/webm;codecs=opus' : 'audio/webm';
-          audioRecorder = new MediaRecorder(audioOnly, {
-            mimeType,
-            audioBitsPerSecond: 32000
-          });
 
-          audioRecorder.ondataavailable = async (e) => {
-            if (e.data.size > 0 && socket && isStreaming) {
-              try {
-                const buf = await e.data.arrayBuffer();
-                socket.emit('audio-chunk', buf);
-              } catch (err) { /* ignore send errors */ }
-            }
-          };
+          // Record self-contained 500ms audio clips and send each as base64
+          function recordCycle() {
+            if (!isStreaming || !socket) return;
 
-          audioRecorder.start(200); // 200ms chunks for low latency
+            const rec = new MediaRecorder(audioOnly, { mimeType, audioBitsPerSecond: 32000 });
+            const parts = [];
+
+            rec.ondataavailable = (e) => {
+              if (e.data.size > 0) parts.push(e.data);
+            };
+
+            rec.onstop = () => {
+              if (parts.length > 0 && socket && isStreaming) {
+                const blob = new Blob(parts, { type: mimeType });
+                const reader = new FileReader();
+                reader.onloadend = () => {
+                  if (reader.result) {
+                    socket.emit('audio-chunk', reader.result);
+                  }
+                  if (isStreaming) recordCycle();
+                };
+                reader.readAsDataURL(blob);
+              } else if (isStreaming) {
+                recordCycle();
+              }
+            };
+
+            rec.onerror = () => {
+              log('Audio recorder error', 'err');
+              if (isStreaming) setTimeout(recordCycle, 1000);
+            };
+
+            rec.start();
+            audioRecorder = rec;
+            setTimeout(() => {
+              if (rec.state === 'recording') {
+                try { rec.stop(); } catch(e) {}
+              }
+            }, 500);
+          }
+
+          recordCycle();
           log('Voice streaming active (Opus codec)', 'ok');
+        } else {
+          log('MediaRecorder not available on this device', 'err');
         }
 
         log('Audio analyser ready', 'ok');
