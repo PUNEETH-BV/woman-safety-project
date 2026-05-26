@@ -802,43 +802,115 @@
       log('Video streaming active (Socket.io)', 'ok');
     }
 
-    // ─── Motion Sensors ───────────────────────────────────────
+    // ─── Motion & Gyroscope Sensors ──────────────────────────
     let accel = { x: 0, y: 0, z: 0 };
     let gyro = { x: 0, y: 0, z: 0 };
+    let motionPermGranted = false;
 
-    function setupMotion() {
-      if (window.DeviceMotionEvent) {
-        if (typeof DeviceMotionEvent.requestPermission === 'function') {
-          DeviceMotionEvent.requestPermission().then(r => {
-            if (r === 'granted') listenMotion();
-            else log('Motion permission denied', 'err');
-          });
-        } else {
-          listenMotion();
+    async function setupMotion() {
+      // iOS 13+ requires explicit permission from a user gesture
+      if (typeof DeviceMotionEvent !== 'undefined' &&
+          typeof DeviceMotionEvent.requestPermission === 'function') {
+        try {
+          const motionPerm = await DeviceMotionEvent.requestPermission();
+          if (motionPerm === 'granted') {
+            motionPermGranted = true;
+            log('Motion permission granted (iOS)', 'ok');
+          } else {
+            log('Motion permission denied — tap "Request Motion" to retry', 'err');
+            showMotionPermButton();
+            return;
+          }
+        } catch (e) {
+          log('Motion permission error: ' + e.message, 'err');
+          showMotionPermButton();
+          return;
         }
+      } else if (typeof DeviceMotionEvent !== 'undefined') {
+        motionPermGranted = true;
       } else {
-        log('Motion sensors not available', 'err');
+        log('Motion sensors not supported on this device', 'err');
+        return;
       }
+
+      // Also request orientation permission on iOS
+      if (typeof DeviceOrientationEvent !== 'undefined' &&
+          typeof DeviceOrientationEvent.requestPermission === 'function') {
+        try {
+          await DeviceOrientationEvent.requestPermission();
+        } catch (e) { /* orientation is optional */ }
+      }
+
+      listenMotion();
+    }
+
+    function showMotionPermButton() {
+      // iOS requires permission from a direct user tap — inject a button
+      let btn = document.getElementById('btnMotionPerm');
+      if (btn) return;
+      btn = document.createElement('button');
+      btn.id = 'btnMotionPerm';
+      btn.className = 'btn btn-start';
+      btn.style.cssText = 'max-width:100%; margin-bottom:12px; font-size:0.85rem;';
+      btn.textContent = '🏃 TAP TO ENABLE MOTION SENSORS';
+      btn.onclick = async () => {
+        try {
+          const perm = await DeviceMotionEvent.requestPermission();
+          if (perm === 'granted') {
+            motionPermGranted = true;
+            if (typeof DeviceOrientationEvent.requestPermission === 'function') {
+              try { await DeviceOrientationEvent.requestPermission(); } catch(e) {}
+            }
+            listenMotion();
+            btn.remove();
+            log('Motion sensors activated!', 'ok');
+          }
+        } catch (e) {
+          log('Motion permission failed: ' + e.message, 'err');
+        }
+      };
+      // Insert before the panic button
+      const panic = document.querySelector('.btn-panic');
+      if (panic) panic.parentNode.insertBefore(btn, panic);
     }
 
     function listenMotion() {
+      // Accelerometer (includes gravity)
       window.addEventListener('devicemotion', (e) => {
-        if (e.accelerationIncludingGravity) {
-          accel.x = parseFloat(e.accelerationIncludingGravity.x?.toFixed(2)) || 0;
-          accel.y = parseFloat(e.accelerationIncludingGravity.y?.toFixed(2)) || 0;
-          accel.z = parseFloat(e.accelerationIncludingGravity.z?.toFixed(2)) || 0;
+        const a = e.accelerationIncludingGravity || e.acceleration;
+        if (a) {
+          accel.x = parseFloat((a.x || 0).toFixed(2));
+          accel.y = parseFloat((a.y || 0).toFixed(2));
+          accel.z = parseFloat((a.z || 0).toFixed(2));
           document.getElementById('ax').textContent = accel.x + ' m/s²';
           document.getElementById('ay').textContent = accel.y + ' m/s²';
         }
+        // DeviceMotion also provides rotationRate
         if (e.rotationRate) {
-          gyro.x = parseFloat(e.rotationRate.alpha?.toFixed(2)) || 0;
-          gyro.y = parseFloat(e.rotationRate.beta?.toFixed(2)) || 0;
-          gyro.z = parseFloat(e.rotationRate.gamma?.toFixed(2)) || 0;
-          document.getElementById('gx').textContent = gyro.x + ' °/s';
+          gyro.x = parseFloat((e.rotationRate.alpha || 0).toFixed(2));
+          gyro.y = parseFloat((e.rotationRate.beta || 0).toFixed(2));
+          gyro.z = parseFloat((e.rotationRate.gamma || 0).toFixed(2));
+          document.getElementById('gx').textContent =
+            Math.sqrt(gyro.x*gyro.x + gyro.y*gyro.y + gyro.z*gyro.z).toFixed(1) + ' °/s';
         }
-      });
+      }, true);
+
+      // Also listen to DeviceOrientation for absolute orientation data
+      window.addEventListener('deviceorientation', (e) => {
+        if (e.alpha !== null || e.beta !== null || e.gamma !== null) {
+          // Use orientation as fallback for gyro display if rotationRate wasn't available
+          if (gyro.x === 0 && gyro.y === 0 && gyro.z === 0) {
+            gyro.x = parseFloat((e.alpha || 0).toFixed(2));
+            gyro.y = parseFloat((e.beta || 0).toFixed(2));
+            gyro.z = parseFloat((e.gamma || 0).toFixed(2));
+            document.getElementById('gx').textContent =
+              Math.sqrt(gyro.x*gyro.x + gyro.y*gyro.y + gyro.z*gyro.z).toFixed(1) + ' °';
+          }
+        }
+      }, true);
+
       pill('pillMotion', true);
-      log('Motion sensors active', 'ok');
+      log('Motion + gyroscope sensors active', 'ok');
     }
 
     // ─── GPS (MANDATORY — Enforced for safety) ────────────────
