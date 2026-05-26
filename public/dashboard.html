@@ -1669,25 +1669,25 @@ function playAlertSound() {
 
   // (Removed duplicate new-capture handler)
 
-// ─── Real-time Audio Playback (Socket.io) ─────────────────
-let audioPlaybackCtx = null;
-let audioNextPlayTime = 0;
-const AUDIO_PLAYBACK_RATE = 8000;
+// ─── Real-time Audio Playback (Opus via MediaSource) ──────
 let audioEnabled = false;
+let audioElement = null;
+let mediaSource = null;
+let sourceBuffer = null;
+let audioQueue = [];
+let mseReady = false;
 
 function toggleAudioPlayback() {
   const btn = document.getElementById('audio-toggle');
   if (!audioEnabled) {
-    audioPlaybackCtx = new (window.AudioContext || window.webkitAudioContext)();
-    audioNextPlayTime = audioPlaybackCtx.currentTime;
     audioEnabled = true;
     btn.textContent = '🔊 Audio ON';
     btn.style.borderColor = 'var(--green)';
     btn.style.color = 'var(--green)';
     btn.style.background = 'rgba(0,255,136,0.1)';
+    initMSEAudio();
   } else {
-    if (audioPlaybackCtx) audioPlaybackCtx.close();
-    audioPlaybackCtx = null;
+    cleanupAudio();
     audioEnabled = false;
     btn.textContent = '🔇 Enable Audio';
     btn.style.borderColor = '#333';
@@ -1696,38 +1696,93 @@ function toggleAudioPlayback() {
   }
 }
 
-socket.on('audio-data', (data) => {
-  if (!audioEnabled || !audioPlaybackCtx) return;
+function cleanupAudio() {
+  mseReady = false;
+  audioQueue = [];
+  if (audioElement) { audioElement.pause(); audioElement.removeAttribute('src'); audioElement.load(); }
+  if (mediaSource && mediaSource.readyState === 'open') {
+    try { mediaSource.endOfStream(); } catch(e) {}
+  }
+  mediaSource = null;
+  sourceBuffer = null;
+  audioElement = null;
+}
+
+function initMSEAudio() {
+  cleanupAudio();
+
+  if (!('MediaSource' in window)) {
+    console.warn('MSE not supported in this browser');
+    return;
+  }
+
+  const mimeType = 'audio/webm;codecs=opus';
+  if (!MediaSource.isTypeSupported(mimeType)) {
+    console.warn('audio/webm;codecs=opus not supported by MSE');
+    return;
+  }
+
+  audioElement = new Audio();
+  mediaSource = new MediaSource();
+  audioElement.src = URL.createObjectURL(mediaSource);
+
+  mediaSource.addEventListener('sourceopen', () => {
+    try {
+      sourceBuffer = mediaSource.addSourceBuffer(mimeType);
+      sourceBuffer.mode = 'sequence';
+      mseReady = true;
+
+      sourceBuffer.addEventListener('updateend', () => {
+        // Process queued chunks
+        if (audioQueue.length > 0 && sourceBuffer && !sourceBuffer.updating) {
+          try { sourceBuffer.appendBuffer(audioQueue.shift()); } catch(e) {}
+        }
+        // Trim old buffer to prevent memory growth
+        try {
+          if (sourceBuffer.buffered.length > 0 && audioElement.currentTime > 15) {
+            sourceBuffer.remove(0, audioElement.currentTime - 10);
+          }
+        } catch(e) {}
+      });
+
+      console.log('MSE audio ready (Opus)');
+    } catch(e) {
+      console.error('MSE SourceBuffer error:', e);
+      mseReady = false;
+    }
+  });
+
+  audioElement.play().catch(e => {
+    console.warn('Audio autoplay blocked — user must click Enable Audio again:', e);
+  });
+}
+
+socket.on('audio-chunk', (data) => {
+  if (!audioEnabled || !mseReady || !sourceBuffer) return;
   if (data.deviceId !== activeUserId) return;
-  
-  try {
-    const int16 = new Int16Array(data.pcm);
-    const float32 = new Float32Array(int16.length);
-    for (let i = 0; i < int16.length; i++) {
-      float32[i] = int16[i] / 32768.0;
+
+  const chunk = new Uint8Array(data.pcm);
+  if (chunk.length === 0) return;
+
+  if (!sourceBuffer.updating) {
+    try { sourceBuffer.appendBuffer(chunk); } catch(e) {
+      // On quota error, trim buffer
+      if (e.name === 'QuotaExceededError' && sourceBuffer.buffered.length > 0) {
+        try { sourceBuffer.remove(0, sourceBuffer.buffered.end(sourceBuffer.buffered.length - 1) - 5); } catch(e2) {}
+      }
     }
-    
-    const buffer = audioPlaybackCtx.createBuffer(1, float32.length, AUDIO_PLAYBACK_RATE);
-    buffer.getChannelData(0).set(float32);
-    
-    const source = audioPlaybackCtx.createBufferSource();
-    source.buffer = buffer;
-    const gainNode = audioPlaybackCtx.createGain();
-    gainNode.gain.value = 3.0; // Amplify remote audio
-    source.connect(gainNode);
-    gainNode.connect(audioPlaybackCtx.destination);
-    
-    const now = audioPlaybackCtx.currentTime;
-    if (audioNextPlayTime < now) audioNextPlayTime = now;
-    source.start(audioNextPlayTime);
-    audioNextPlayTime += buffer.duration;
-    
-    // Prevent latency buildup
-    if (audioNextPlayTime - now > 1.5) {
-      audioNextPlayTime = now + 0.05;
+  } else {
+    audioQueue.push(chunk);
+    // Prevent queue from growing too large (drop oldest)
+    if (audioQueue.length > 20) audioQueue.shift();
+  }
+
+  // Auto-seek to live edge to prevent growing latency
+  if (audioElement && sourceBuffer.buffered.length > 0) {
+    const buffEnd = sourceBuffer.buffered.end(sourceBuffer.buffered.length - 1);
+    if (buffEnd - audioElement.currentTime > 2) {
+      audioElement.currentTime = buffEnd - 0.3;
     }
-  } catch(e) {
-    // Ignore individual playback errors
   }
 });
 

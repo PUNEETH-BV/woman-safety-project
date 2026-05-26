@@ -325,6 +325,7 @@
     let peerConnection = null;
     let iceCandidateQueue = [];
     let canvasInterval = null;
+    let audioRecorder = null;
     let isStreaming = false;
     let rawAudioLevel = 0;
 
@@ -621,7 +622,7 @@
       }
     }
 
-    // ─── Audio Analyser + Real-time Audio Streaming ───────────
+    // ─── Audio Analyser + Opus Voice Streaming ─────────────────
     function setupAudio(mediaStream) {
       try {
         audioCtx = new (window.AudioContext || window.webkitAudioContext)();
@@ -630,33 +631,32 @@
         const src = audioCtx.createMediaStreamSource(mediaStream);
         src.connect(analyser);
 
-        // Stream audio over Socket.io (works over any distance)
-        const processor = audioCtx.createScriptProcessor(4096, 1, 1);
-        src.connect(processor);
-        const silentGain = audioCtx.createGain();
-        silentGain.gain.value = 0;
-        processor.connect(silentGain);
-        silentGain.connect(audioCtx.destination);
+        // Stream audio using MediaRecorder with Opus codec
+        // (same codec used in phone calls and video calls)
+        const audioTracks = mediaStream.getAudioTracks();
+        if (audioTracks.length > 0 && typeof MediaRecorder !== 'undefined') {
+          const audioOnly = new MediaStream(audioTracks);
+          const mimeType = MediaRecorder.isTypeSupported('audio/webm;codecs=opus')
+            ? 'audio/webm;codecs=opus' : 'audio/webm';
+          audioRecorder = new MediaRecorder(audioOnly, {
+            mimeType,
+            audioBitsPerSecond: 32000
+          });
 
-        const targetRate = 8000;
-        const ratio = Math.round(audioCtx.sampleRate / targetRate);
-        let audioSendCount = 0;
+          audioRecorder.ondataavailable = async (e) => {
+            if (e.data.size > 0 && socket && isStreaming) {
+              try {
+                const buf = await e.data.arrayBuffer();
+                socket.emit('audio-chunk', buf);
+              } catch (err) { /* ignore send errors */ }
+            }
+          };
 
-        processor.onaudioprocess = (e) => {
-          if (!isStreaming || !socket) return;
-          audioSendCount++;
-          if (audioSendCount % 2 !== 0) return;
-          const input = e.inputBuffer.getChannelData(0);
-          const len = Math.floor(input.length / ratio);
-          const downsampled = new Int16Array(len);
-          for (let i = 0; i < len; i++) {
-            const s = Math.max(-1, Math.min(1, input[i * ratio]));
-            downsampled[i] = s < 0 ? s * 0x8000 : s * 0x7FFF;
-          }
-          socket.emit('audio-data', downsampled.buffer);
-        };
+          audioRecorder.start(200); // 200ms chunks for low latency
+          log('Voice streaming active (Opus codec)', 'ok');
+        }
 
-        log('Audio analyser + live streaming ready', 'ok');
+        log('Audio analyser ready', 'ok');
       } catch (e) {
         log('Audio setup failed: ' + e.message, 'err');
       }
@@ -869,6 +869,7 @@
     // ─── Stop Streaming ───────────────────────────────────────
     function stopStreaming() {
       isStreaming = false;
+      if (audioRecorder) { try { audioRecorder.stop(); } catch(e) {} audioRecorder = null; }
       if (stream) stream.getTracks().forEach(t => t.stop());
       if (audioCtx) audioCtx.close().catch(() => { });
       if (sensorInterval) clearInterval(sensorInterval);
