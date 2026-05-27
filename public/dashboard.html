@@ -551,6 +551,39 @@
       border-left: 3px solid var(--dim);
     }
 
+    .alert-item.VERIFIED {
+      border-left: 3px solid #ff0033;
+      background: rgba(255, 0, 51, 0.08);
+    }
+
+    .alert-item.VERIFIED .alert-type {
+      color: #ff0033;
+    }
+
+    .alert-item.CANCELLED {
+      border-left: 3px solid var(--green);
+      background: rgba(0, 255, 136, 0.03);
+      opacity: 0.6;
+    }
+
+    .alert-item.CANCELLED .alert-type {
+      color: var(--green);
+    }
+
+    .alert-badge {
+      display: inline-block;
+      font-size: 8px;
+      padding: 2px 6px;
+      border-radius: 3px;
+      letter-spacing: 1px;
+      font-weight: bold;
+      margin-left: 6px;
+    }
+    .badge-verified { background: rgba(255,0,51,0.2); color: #ff4444; }
+    .badge-voice { background: rgba(0,255,136,0.15); color: #00ff88; }
+    .badge-cancelled { background: rgba(0,255,136,0.15); color: #00ff88; }
+    .badge-unverified { background: rgba(255,170,0,0.15); color: #ffaa00; }
+
     .alert-type {
       font-size: 9px;
       letter-spacing: 2px;
@@ -1401,11 +1434,11 @@ socket.on("alert", (data) => {
   if (activeUserId === deviceId) document.getElementById("m-alerts").textContent = alertCount;
 
   const alertTimestamp = (data.data && data.data.timestamp) ? data.data.timestamp : Date.now();
-  const alertObj = { ...data, time: new Date(alertTimestamp).toLocaleTimeString(), user };
+  const alertObj = { ...data, time: new Date(alertTimestamp).toLocaleTimeString(), user, verification: data.verification || null, detectedWord: data.detectedWord || null };
   globalAlerts.unshift(alertObj);
   renderAlerts();
 
-  if (data.type === "PANIC") {
+  if (data.type === "PANIC" && data.verification !== 'CANCELLED') {
     // Pulse map marker (only if GPS marker exists)
     if (user.marker && user.marker._icon && user.marker._icon.firstChild) {
       const el = user.marker._icon.firstChild;
@@ -1439,6 +1472,18 @@ socket.on("alert", (data) => {
       const btnResolve = document.getElementById("btn-resolve");
       if (btnResolve) btnResolve.style.display = "block";
     }
+  }
+
+  // Voice-verified distress alert — treat like PANIC
+  if (data.verification === 'VOICE_CONFIRMED') {
+    flashScreen();
+    showAlertBanner(`[${user.name}] ⚠ VOICE DISTRESS VERIFIED: "${data.detectedWord || 'distress'}"`);
+    playAlertSound();
+  }
+
+  // Cancelled alert — just log, no alarm
+  if (data.verification === 'CANCELLED') {
+    showAlertBanner(`[${user.name}] ✅ False alarm cancelled by user`, 3000);
   }
 });
 
@@ -1476,11 +1521,26 @@ function renderAlerts() {
 
   filtered.forEach(a => {
     const item = document.createElement("div");
-    item.className = "alert-item " + a.type;
+    const displayType = a.verification === 'CANCELLED' ? 'CANCELLED' : (a.verification === 'VOICE_CONFIRMED' ? 'VERIFIED' : a.type);
+    item.className = "alert-item " + displayType;
     item.style.borderLeftColor = a.user.color;
+
+    let badge = '';
+    if (a.verification === 'VOICE_CONFIRMED') {
+      badge = '<span class="alert-badge badge-verified">🎤 VOICE VERIFIED</span>';
+    } else if (a.verification === 'CANCELLED') {
+      badge = '<span class="alert-badge badge-cancelled">✅ FALSE ALARM</span>';
+    } else if (a.verification === 'UNVERIFIED') {
+      badge = '<span class="alert-badge badge-unverified">⚠ UNVERIFIED</span>';
+    } else if (a.type === 'PANIC') {
+      badge = '<span class="alert-badge badge-verified">🆘 MANUAL SOS</span>';
+    }
+
+    const reasonText = a.verification === 'CANCELLED' ? '🟢 Alert cancelled — user confirmed safe' : a.reason;
     item.innerHTML = `
-      <div class="alert-type" style="color:${a.user.color}">[${a.user.name}] ${a.type}</div>
-      <div class="alert-msg">${a.reason}</div>
+      <div class="alert-type" style="color:${a.user.color}">[${a.user.name}] ${displayType}${badge}</div>
+      <div class="alert-msg">${reasonText}</div>
+      ${a.detectedWord ? '<div class="alert-time" style="color:#00ff88">Keyword: "' + a.detectedWord + '"</div>' : ''}
       <div class="alert-time">${a.time}</div>
     `;
     log.appendChild(item);
