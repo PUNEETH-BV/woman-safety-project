@@ -830,6 +830,77 @@
     <button id="btn-resolve" class="resolve-btn" style="width:300px; background:#fff; color:#000; border:none;" onclick="hideAiSosOverlay(); resolveSOS();">ACKNOWLEDGE & MONITOR</button>
   </div>
 
+  <!-- ROOM JOIN OVERLAY -->
+  <div id="room-overlay"
+    style="display:flex; position:fixed; inset:0; background:#0a0a12; z-index:99999; flex-direction:column; align-items:center; justify-content:center; padding:30px; text-align:center;">
+    <div style="font-size:48px; margin-bottom:16px;">🛡</div>
+    <h1 style="color:#00ff88; font-size:1.6rem; letter-spacing:4px; margin-bottom:6px;">SAFEGUARD</h1>
+    <p style="color:#666; font-size:0.75rem; letter-spacing:2px; margin-bottom:30px;">DASHBOARD — LIVE MONITORING</p>
+
+    <div style="width:100%;max-width:340px;text-align:left;margin-bottom:20px;">
+      <label style="font-size:0.7rem;color:#00ff88;letter-spacing:2px;">ROOM CODE</label>
+      <input type="text" id="roomInput" placeholder="e.g. ABC123"
+        style="width:100%;background:#111;border:1px solid #333;color:#fff;padding:14px;margin-top:8px;border-radius:8px;font-family:inherit;font-size:1.1rem;text-transform:uppercase;letter-spacing:3px;text-align:center;" />
+      <p style="color:#555;font-size:0.65rem;margin-top:8px;line-height:1.5;">Enter the same room code as your phone, or leave blank to auto-generate a new room.</p>
+    </div>
+
+    <button id="btnJoinRoom"
+      style="width:100%;max-width:340px;padding:16px;background:#00ff88;color:#000;border:none;border-radius:10px;font-size:1rem;font-family:inherit;cursor:pointer;letter-spacing:3px;font-weight:bold;">JOIN ROOM</button>
+
+    <p id="room-generated-msg" style="display:none; color:#00ff88; font-size:0.8rem; margin-top:15px; letter-spacing:1px;"></p>
+  </div>
+
+  <script>
+  // Self-contained room join logic (runs immediately, no dependencies)
+  (function() {
+    var urlRoom = new URLSearchParams(window.location.search).get('room');
+    if (urlRoom) {
+      // Room already in URL — hide overlay immediately
+      document.getElementById('room-overlay').style.display = 'none';
+      return;
+    }
+
+    var btn = document.getElementById('btnJoinRoom');
+    var input = document.getElementById('roomInput');
+
+    function doJoin() {
+      var code = input.value.trim().toUpperCase();
+      if (!code) {
+        code = Math.random().toString(36).substr(2, 6).toUpperCase();
+        // Show the generated code briefly
+        var msg = document.getElementById('room-generated-msg');
+        msg.textContent = 'Generated room: ' + code;
+        msg.style.display = 'block';
+        input.value = code;
+      }
+
+      // Update URL
+      var newUrl = window.location.pathname + '?room=' + code;
+      window.history.replaceState({}, '', newUrl);
+
+      // Hide overlay
+      document.getElementById('room-overlay').style.display = 'none';
+
+      // Set room badge
+      var badge = document.getElementById('sidebar-room');
+      if (badge) badge.textContent = 'ROOM: ' + code;
+
+      // Store globally for the main script
+      window.__safeguardRoom = code;
+
+      // If socket already connected, register
+      if (window.__safeguardSocket && window.__safeguardSocket.connected) {
+        window.__safeguardSocket.emit('register', { role: 'dashboard', room: code });
+      }
+    }
+
+    btn.addEventListener('click', doJoin);
+    input.addEventListener('keydown', function(e) {
+      if (e.key === 'Enter') doJoin();
+    });
+  })();
+  </script>
+
   <!-- Header -->
   <header>
     <div class="logo">
@@ -848,24 +919,6 @@
 
   <!-- Alert Banner -->
   <div id="alert-banner">🚨 &nbsp; ALERT TRIGGERED &nbsp; 🚨</div>
-
-  <!-- ROOM JOIN OVERLAY -->
-  <div id="room-overlay"
-    style="display:flex; position:fixed; inset:0; background:#0a0a12; z-index:99999; flex-direction:column; align-items:center; justify-content:center; padding:30px; text-align:center;">
-    <div style="font-size:48px; margin-bottom:16px;">🛡</div>
-    <h1 style="color:#00ff88; font-size:1.6rem; letter-spacing:4px; margin-bottom:6px;">SAFEGUARD</h1>
-    <p style="color:#666; font-size:0.75rem; letter-spacing:2px; margin-bottom:30px;">DASHBOARD — LIVE MONITORING</p>
-
-    <div style="width:100%;max-width:340px;text-align:left;margin-bottom:20px;">
-      <label style="font-size:0.7rem;color:#00ff88;letter-spacing:2px;">ROOM CODE</label>
-      <input type="text" id="roomInput" placeholder="Enter room code or leave blank to auto-generate"
-        style="width:100%;background:#111;border:1px solid #333;color:#fff;padding:14px;margin-top:8px;border-radius:8px;font-family:inherit;font-size:1rem;text-transform:uppercase;letter-spacing:2px;text-align:center;" />
-      <p style="color:#555;font-size:0.65rem;margin-top:8px;line-height:1.5;">Enter the same room code as your phone, or leave blank to create a new room. Share the code with the phone user.</p>
-    </div>
-
-    <button id="btnJoinRoom" onclick="joinDashboardRoom()"
-      style="width:100%;max-width:340px;padding:16px;background:#00ff88;color:#000;border:none;border-radius:10px;font-size:1rem;font-family:inherit;cursor:pointer;letter-spacing:3px;font-weight:bold;">JOIN ROOM</button>
-  </div>
 
   <!-- Main -->
   <main>
@@ -1037,9 +1090,10 @@ const socket = io({
     "ngrok-skip-browser-warning": "true"
   }
 });
+window.__safeguardSocket = socket; // Expose for the room overlay script
 
 // User State
-const users = new Map(); // deviceId -> { name, color, connected, lastAlert, gps, pc, audioLevel, sensorData, stream, marker, trailCoords, trailLine }
+const users = new Map();
 let activeUserId = null;
 let globalAlerts = [];
 let alertCount = 0;
@@ -1048,39 +1102,14 @@ let alertCount = 0;
 const COLORS = ["#00ff88", "#3377ff", "#ff9900", "#ff44aa", "#aa44ff", "#44ffff", "#ffff44", "#ff4444"];
 function getColor(index) { return COLORS[index % COLORS.length]; }
 
-// Room Logic
-let roomCode = new URLSearchParams(window.location.search).get('room');
-let roomJoined = false;
+// Room Logic — integrates with the self-contained overlay script
+let roomCode = window.__safeguardRoom || new URLSearchParams(window.location.search).get('room');
+let roomJoined = !!roomCode;
 
-function joinDashboardRoom() {
-  const input = document.getElementById('roomInput').value.trim().toUpperCase();
-  roomCode = input || Math.random().toString(36).substr(2, 6).toUpperCase();
-
-  // Update URL so refreshing keeps the room
-  const newUrl = window.location.pathname + '?room=' + roomCode;
-  window.history.pushState({path: newUrl}, '', newUrl);
-
-  // Update UI
+if (roomCode) {
+  roomCode = roomCode.toUpperCase();
   document.getElementById('sidebar-room').textContent = 'ROOM: ' + roomCode;
   document.getElementById('room-overlay').style.display = 'none';
-  roomJoined = true;
-
-  // Register with server
-  if (socket.connected) {
-    socket.emit('register', { role: 'dashboard', room: roomCode });
-    setFooter('Connected — waiting for phones in room ' + roomCode);
-  }
-}
-
-// If room is in the URL, auto-join immediately
-if (roomCode) {
-  document.getElementById('sidebar-room').textContent = 'ROOM: ' + roomCode.toUpperCase();
-  document.getElementById('room-overlay').style.display = 'none';
-  roomJoined = true;
-  roomCode = roomCode.toUpperCase();
-} else {
-  // Show the overlay and wait for user input
-  document.getElementById('room-overlay').style.display = 'flex';
 }
 
 function copyRoomCode() {
@@ -1126,6 +1155,11 @@ function setFooter(msg) {
 
 // ─── Socket Events ────────────────────────────────────────
 socket.on("connect", () => {
+  // Pick up room from overlay script if it joined after init
+  if (!roomJoined && window.__safeguardRoom) {
+    roomCode = window.__safeguardRoom.toUpperCase();
+    roomJoined = true;
+  }
   if (roomJoined && roomCode) {
     socket.emit("register", { role: "dashboard", room: roomCode.toUpperCase() });
     setFooter("Connected — waiting for phones in room " + roomCode.toUpperCase());
