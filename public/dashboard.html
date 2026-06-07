@@ -6,8 +6,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>SafeGuard – Command Dashboard</title>
   <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
-  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css" />
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
   <link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Bebas+Neue&display=swap"
     rel="stylesheet" />
   <style>
@@ -1152,9 +1152,21 @@ if (initialRoom) {
 // Map setup
 let map;
 function initMap() {
-  map = L.map("map", { zoomControl: true, attributionControl: false });
-  L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", { maxZoom: 19 }).addTo(map);
-  map.setView([12.9716, 77.5946], 15);
+  try {
+    if (typeof L === 'undefined') {
+      console.warn("Leaflet library not loaded. Map features will be disabled.");
+      const mapEl = document.getElementById("map");
+      if (mapEl) {
+        mapEl.innerHTML = "<div style='display:flex;align-items:center;justify-content:center;height:100%;color:var(--dim);text-transform:uppercase;font-size:11px;letter-spacing:1px;background:#0d0d1a;'>🗺️ Map offline (Leaflet CDN unavailable)</div>";
+      }
+      return;
+    }
+    map = L.map("map", { zoomControl: true, attributionControl: false });
+    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", { maxZoom: 19 }).addTo(map);
+    map.setView([12.9716, 77.5946], 15);
+  } catch (err) {
+    console.error("Failed to initialize map:", err);
+  }
 }
 initMap();
 
@@ -1230,7 +1242,7 @@ socket.on("room-users", (roomUsers) => {
         canvasFrames: null,
         marker: null,
         trailCoords: [],
-        trailLine: L.polyline([], { color: getColor(users.size), weight: 2, opacity: 0.6, dashArray: "4 4" }).addTo(map)
+        trailLine: (typeof L !== 'undefined' && map) ? L.polyline([], { color: getColor(users.size), weight: 2, opacity: 0.6, dashArray: "4 4" }).addTo(map) : null
       });
       addLog("INFO", u.name + " joined the room", new Date().toLocaleTimeString(), u.deviceId);
     } else {
@@ -1300,7 +1312,13 @@ function selectUser(deviceId) {
   }
 
   // Update Map
-  if (user.gps) map.panTo([user.gps.lat, user.gps.lng]);
+  if (user.gps && typeof L !== 'undefined' && map) {
+    try {
+      map.panTo([user.gps.lat, user.gps.lng]);
+    } catch (e) {
+      console.error("Map panTo error:", e);
+    }
+  }
 
   // Force render of last sensor data
   if (user.sensorData) updateDashboardMetrics(user.sensorData);
@@ -1503,21 +1521,27 @@ socket.on("gps-update", (data) => {
 
   const latlng = [data.lat, data.lng];
   
-  if (!user.marker) {
-    const icon = L.divIcon({
-      className: "",
-      html: `<div style="width:16px;height:16px;background:${user.color};border:3px solid #fff;border-radius:50%;box-shadow:0 0 12px ${user.color};"></div>`,
-      iconSize: [16, 16],
-      iconAnchor: [8, 8]
-    });
-    user.marker = L.marker(latlng, { icon }).addTo(map).on('click', () => selectUser(deviceId));
-  } else {
-    user.marker.setLatLng(latlng);
-  }
+  if (typeof L !== 'undefined' && map) {
+    try {
+      if (!user.marker) {
+        const icon = L.divIcon({
+          className: "",
+          html: `<div style="width:16px;height:16px;background:${user.color};border:3px solid #fff;border-radius:50%;box-shadow:0 0 12px ${user.color};"></div>`,
+          iconSize: [16, 16],
+          iconAnchor: [8, 8]
+        });
+        user.marker = L.marker(latlng, { icon }).addTo(map).on('click', () => selectUser(deviceId));
+      } else {
+        user.marker.setLatLng(latlng);
+      }
 
-  user.trailCoords.push(latlng);
-  if (user.trailCoords.length > 200) user.trailCoords.shift();
-  user.trailLine.setLatLngs(user.trailCoords);
+      user.trailCoords.push(latlng);
+      if (user.trailCoords.length > 200) user.trailCoords.shift();
+      if (user.trailLine) user.trailLine.setLatLngs(user.trailCoords);
+    } catch (mapErr) {
+      console.error("Error updating map marker/trail:", mapErr);
+    }
+  }
 
   if (activeUserId === deviceId) {
     document.getElementById("d-lat").textContent = data.lat.toFixed(6);
