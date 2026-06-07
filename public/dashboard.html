@@ -856,6 +856,7 @@
     var urlRoom = new URLSearchParams(window.location.search).get('room');
     if (urlRoom) {
       // Room already in URL — hide overlay immediately
+      window.__safeguardRoom = urlRoom;
       document.getElementById('room-overlay').style.display = 'none';
       return;
     }
@@ -874,23 +875,20 @@
         input.value = code;
       }
 
-      // Update URL
-      var newUrl = window.location.pathname + '?room=' + code;
-      window.history.replaceState({}, '', newUrl);
-
-      // Hide overlay
-      document.getElementById('room-overlay').style.display = 'none';
-
-      // Set room badge
-      var badge = document.getElementById('sidebar-room');
-      if (badge) badge.textContent = 'ROOM: ' + code;
-
-      // Store globally for the main script
       window.__safeguardRoom = code;
 
-      // If socket already connected, register
-      if (window.__safeguardSocket && window.__safeguardSocket.connected) {
-        window.__safeguardSocket.emit('register', { role: 'dashboard', room: code });
+      if (typeof window.registerRoom === 'function') {
+        window.registerRoom(code);
+      } else {
+        // Fallback if main script hasn't loaded yet
+        var newUrl = window.location.pathname + '?room=' + code;
+        window.history.replaceState({}, '', newUrl);
+        document.getElementById('room-overlay').style.display = 'none';
+        var badge = document.getElementById('sidebar-room');
+        if (badge) badge.textContent = 'ROOM: ' + code;
+        if (window.__safeguardSocket && window.__safeguardSocket.connected) {
+          window.__safeguardSocket.emit('register', { role: 'dashboard', room: code });
+        }
       }
     }
 
@@ -1103,22 +1101,52 @@ const COLORS = ["#00ff88", "#3377ff", "#ff9900", "#ff44aa", "#aa44ff", "#44ffff"
 function getColor(index) { return COLORS[index % COLORS.length]; }
 
 // Room Logic — integrates with the self-contained overlay script
-let roomCode = window.__safeguardRoom || new URLSearchParams(window.location.search).get('room');
-let roomJoined = !!roomCode;
+let roomCode = null;
+let roomJoined = false;
 
-if (roomCode) {
-  roomCode = roomCode.toUpperCase();
-  document.getElementById('sidebar-room').textContent = 'ROOM: ' + roomCode;
-  document.getElementById('room-overlay').style.display = 'none';
-}
+window.registerRoom = function(code) {
+  if (!code) return;
+  roomCode = code.toUpperCase();
+  roomJoined = true;
+  window.__safeguardRoom = roomCode;
+
+  // Update URL search params without page reload
+  const currentUrlParams = new URLSearchParams(window.location.search);
+  if (currentUrlParams.get('room') !== roomCode) {
+    const newUrl = window.location.pathname + '?room=' + roomCode;
+    window.history.replaceState({}, '', newUrl);
+  }
+
+  // Update UI Elements
+  const badge = document.getElementById('sidebar-room');
+  if (badge) badge.textContent = 'ROOM: ' + roomCode;
+  
+  const overlay = document.getElementById('room-overlay');
+  if (overlay) overlay.style.display = 'none';
+
+  // Emit register event to server
+  if (socket && socket.connected) {
+    socket.emit("register", { role: "dashboard", room: roomCode });
+    setFooter("Connected — waiting for phones in room " + roomCode);
+  } else {
+    setFooter("Connecting to room " + roomCode + "...");
+  }
+};
 
 function copyRoomCode() {
-  if (!roomCode) return;
-  navigator.clipboard.writeText(roomCode.toUpperCase()).then(() => {
+  const currentRoom = window.__safeguardRoom || roomCode;
+  if (!currentRoom) return;
+  navigator.clipboard.writeText(currentRoom.toUpperCase()).then(() => {
     const el = document.getElementById('sidebar-room');
     el.textContent = '✅ COPIED!';
-    setTimeout(() => { el.textContent = 'ROOM: ' + roomCode.toUpperCase(); }, 1500);
+    setTimeout(() => { el.textContent = 'ROOM: ' + currentRoom.toUpperCase(); }, 1500);
   });
+}
+
+// Initial check on page load (runs when script loads)
+const initialRoom = window.__safeguardRoom || new URLSearchParams(window.location.search).get('room');
+if (initialRoom) {
+  window.registerRoom(initialRoom);
 }
 
 // Map setup
@@ -1155,18 +1183,21 @@ function setFooter(msg) {
 
 // ─── Socket Events ────────────────────────────────────────
 socket.on("connect", () => {
-  // Pick up room from overlay script if it joined after init
-  if (!roomJoined && window.__safeguardRoom) {
-    roomCode = window.__safeguardRoom.toUpperCase();
-    roomJoined = true;
-  }
-  if (roomJoined && roomCode) {
-    socket.emit("register", { role: "dashboard", room: roomCode.toUpperCase() });
-    setFooter("Connected — waiting for phones in room " + roomCode.toUpperCase());
+  const currentRoom = window.__safeguardRoom || roomCode || new URLSearchParams(window.location.search).get('room');
+  if (currentRoom) {
+    window.registerRoom(currentRoom);
   } else {
     setFooter("Connected — enter a room code to begin monitoring");
   }
 });
+
+// Immediately register if socket is already connected (handles race condition)
+if (socket.connected) {
+  const currentRoom = window.__safeguardRoom || roomCode || new URLSearchParams(window.location.search).get('room');
+  if (currentRoom) {
+    window.registerRoom(currentRoom);
+  }
+}
 
 socket.on("room-users", (roomUsers) => {
   document.getElementById("sidebar-count").textContent = roomUsers.length + " LIVE";
