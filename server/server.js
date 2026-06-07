@@ -94,7 +94,7 @@ io.on("connection", (socket) => {
 
   socket.on("register", (data) => {
     const role = typeof data === 'string' ? data : data.role;
-    const roomId = data.room || 'DEFAULT';
+    const roomId = (data.room || 'DEFAULT').toUpperCase();
     currentRoom = roomId;
     clientRole = role;
 
