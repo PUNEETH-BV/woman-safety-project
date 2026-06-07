@@ -1203,6 +1203,11 @@ socket.on("connect", () => {
   }
 });
 
+socket.on("connect_error", (err) => {
+  console.error("Socket connection error:", err);
+  setFooter("Connection error: " + err.message);
+});
+
 // Immediately register if socket is already connected (handles race condition)
 if (socket.connected) {
   const currentRoom = window.__safeguardRoom || roomCode || new URLSearchParams(window.location.search).get('room');

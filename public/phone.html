@@ -517,6 +517,12 @@
         log('Disconnected', 'err');
       });
 
+      socket.on('connect_error', (err) => {
+        document.getElementById('connStatus').textContent = '⚠️ Connection Error';
+        document.getElementById('connStatus').className = 'status-val red';
+        log('Connection error: ' + err.message, 'err');
+      });
+
       socket.on('status', d => log(d.message, 'ok'));
 
       socket.on('dashboard-connected', () => {
